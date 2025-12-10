@@ -1,0 +1,66 @@
+/* MessagePage hover effects */
+.message-logout-button:hover {
+  background-color: #ef4444 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
+}
+
+.message-add-button:hover:not(:disabled) {
+  background-color: #8b5cf6 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4) !important;
+}
+
+.message-add-button:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Room button hover effects */
+.room-button:hover {
+  background-color: rgba(124, 58, 237, 0.15) !important;
+  border-color: rgba(124, 58, 237, 0.4) !important;
+  transform: translateX(4px) !important;
+}
+
+/* Input focus effects */
+.message-input:focus {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+}
+
+/* Smooth scrollbar styling */
+.messages-box::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-box::-webkit-scrollbar-track {
+  background: rgba(26, 31, 58, 0.3);
+  border-radius: 4px;
+}
+
+.messages-box::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.5);
+  border-radius: 4px;
+}
+
+.messages-box::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.7);
+}
+
+/* Animation for new messages */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item {
+  animation: slideIn 0.3s ease-out;
+}
+

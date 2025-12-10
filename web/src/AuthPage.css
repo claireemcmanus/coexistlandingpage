@@ -1,0 +1,21 @@
+/* AuthPage hover and focus effects */
+.auth-input:focus {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+}
+
+.auth-button:hover:not(:disabled) {
+  background-color: #8b5cf6 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4) !important;
+}
+
+.auth-button:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+.auth-switch-button:hover {
+  color: #c4b5fd !important;
+}
+

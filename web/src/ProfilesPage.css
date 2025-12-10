@@ -1,0 +1,64 @@
+.profile-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 40px rgba(107, 70, 193, 0.4) !important;
+}
+
+.profile-modal {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(124, 58, 237, 0.2);
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Add hover effects for like and pass buttons */
+.pass-button:hover {
+  transform: scale(1.1);
+  background-color: rgba(167, 139, 250, 0.3) !important;
+  box-shadow: 0 6px 16px rgba(167, 139, 250, 0.5) !important;
+}
+
+.like-button:hover {
+  transform: scale(1.1);
+  background-color: rgba(124, 58, 237, 0.3) !important;
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.5) !important;
+}
+
+.pass-button:active {
+  transform: scale(0.95);
+}
+
+.like-button:active {
+  transform: scale(0.95);
+}
+
+.message-button:hover {
+  transform: scale(1.1);
+  background-color: rgba(167, 139, 250, 0.3) !important;
+  box-shadow: 0 6px 16px rgba(167, 139, 250, 0.5) !important;
+}
+
+.message-button:active {
+  transform: scale(0.95);
+}

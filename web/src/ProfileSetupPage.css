@@ -1,0 +1,91 @@
+/* Profile Setup Page Styles */
+.profile-input:focus {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+}
+
+.neighborhood-button:hover {
+  background-color: rgba(124, 58, 237, 0.15) !important;
+  border-color: rgba(124, 58, 237, 0.4) !important;
+  transform: translateY(-2px) !important;
+}
+
+.profile-submit-button:hover:not(:disabled) {
+  background-color: #8b5cf6 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4) !important;
+}
+
+.profile-submit-button:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+/* Custom scrollbar for neighborhood list */
+.neighborhood-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.neighborhood-list::-webkit-scrollbar-track {
+  background: rgba(26, 31, 58, 0.3);
+  border-radius: 3px;
+}
+
+.neighborhood-list::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.5);
+  border-radius: 3px;
+}
+
+.neighborhood-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.7);
+}
+
+/* Slider styling */
+.preference-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #7c3aed;
+  cursor: pointer;
+  border: 2px solid #a78bfa;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.4);
+  transition: all 0.2s;
+}
+
+.preference-slider::-webkit-slider-thumb:hover {
+  background: #8b5cf6;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.6);
+}
+
+.preference-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #7c3aed;
+  cursor: pointer;
+  border: 2px solid #a78bfa;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.4);
+  transition: all 0.2s;
+}
+
+.preference-slider::-moz-range-thumb:hover {
+  background: #8b5cf6;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.6);
+}
+
+.preference-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  background: linear-gradient(to right, rgba(26, 31, 58, 0.5), rgba(124, 58, 237, 0.3));
+  border-radius: 4px;
+}
+
+.preference-slider::-moz-range-track {
+  height: 8px;
+  background: linear-gradient(to right, rgba(26, 31, 58, 0.5), rgba(124, 58, 237, 0.3));
+  border-radius: 4px;
+}
+
