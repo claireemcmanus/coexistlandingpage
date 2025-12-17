@@ -2,43 +2,34 @@
 
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
-
+import {
+  initializeAuth,
+  indexedDBLocalPersistence,
+} from "firebase/auth";
+// For iOS, these values are embedded in the built JavaScript bundle
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID,
-  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyDs9B8K1X8xmyw77l4BM55z7nTZzZ0mf5M",
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "collegeconnect-3906d.firebaseapp.com",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "collegeconnect-3906d",
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "collegeconnect-3906d.firebasestorage.app",
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "114960693146",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:114960693146:web:bbe01ba7f0bb4f1daaec23",
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-113E6P25MQ",
 };
 
-let app;
-try {
-  // Check if Firebase config is valid
-  const hasRequiredConfig = 
-    firebaseConfig.apiKey && 
-    firebaseConfig.authDomain && 
-    firebaseConfig.projectId;
-  
-  if (!hasRequiredConfig) {
-    console.error("Firebase configuration is missing required fields. Please check your .env file.");
-    console.error("Required: REACT_APP_FIREBASE_API_KEY, REACT_APP_FIREBASE_AUTH_DOMAIN, REACT_APP_FIREBASE_PROJECT_ID");
-  }
-  
-  app = initializeApp(firebaseConfig);
-  console.log("Firebase initialized successfully!");
-} catch (error) {
-  console.error("Firebase initialization failed:", error);
-  console.error("Please check your Firebase configuration in the .env file");
-  throw error; // Re-throw to prevent undefined app
-}
+const app = initializeApp(firebaseConfig);
 
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-export const storage = getStorage(app);
+// 🔐 THIS IS THE KEY DIFFERENCE
+// iOS Capacitor REQUIRES initializeAuth + indexedDBLocalPersistence
+const auth = initializeAuth(app, {
+  persistence: indexedDBLocalPersistence,
+});
 
-export default app;
+console.log("✅ Firebase Auth initialized with indexedDB persistence");
 
+// 📦 Other services
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+export { app, auth, db, storage };

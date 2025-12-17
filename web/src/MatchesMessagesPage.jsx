@@ -75,6 +75,7 @@ export default function MatchesMessagesPage() {
     });
 
     return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMatch, currentUser]);
 
   // Auto-scroll to bottom
@@ -119,52 +120,60 @@ export default function MatchesMessagesPage() {
         </div>
       ) : (
         <div style={styles.layout}>
-          <div style={styles.sidebar}>
-            <h3 style={styles.sidebarTitle}>Matches</h3>
-            <div style={styles.matchesList}>
-              {matches.map((match) => {
-                const otherUserId =
-                  match.userId1 === currentUser.uid
-                    ? match.userId2
-                    : match.userId1;
-                const profile = matchProfiles[otherUserId];
+          {/* Mobile: Show matches dropdown/button, Desktop: Show sidebar */}
+          {!selectedMatch && (
+            <div style={styles.mobileMatchesList}>
+              <h3 style={styles.sidebarTitle}>Select a match to message:</h3>
+              <div style={styles.matchesList}>
+                {matches.map((match) => {
+                  const otherUserId =
+                    match.userId1 === currentUser.uid
+                      ? match.userId2
+                      : match.userId1;
+                  const profile = matchProfiles[otherUserId];
 
-                return (
-                  <button
-                    key={match.id}
-                    onClick={() => setSelectedMatch(otherUserId)}
-                    style={{
-                      ...styles.matchButton,
-                      ...(selectedMatch === otherUserId
-                        ? styles.matchButtonActive
-                        : {}),
-                    }}
-                    className="match-button"
-                  >
-                    {profile?.profilePictureUrl ? (
-                      <img
-                        src={profile.profilePictureUrl}
-                        alt={profile.displayName}
-                        style={styles.matchAvatar}
-                      />
-                    ) : (
-                      <div style={styles.matchAvatarPlaceholder}>
-                        {profile?.displayName?.charAt(0) || "?"}
+                  return (
+                    <button
+                      key={match.id}
+                      onClick={() => setSelectedMatch(otherUserId)}
+                      style={styles.matchButton}
+                      className="match-button"
+                    >
+                      {profile?.profilePictureUrl ? (
+                        <img
+                          src={profile.profilePictureUrl}
+                          alt={profile.displayName}
+                          style={styles.matchAvatar}
+                        />
+                      ) : (
+                        <div style={styles.matchAvatarPlaceholder}>
+                          {profile?.displayName?.charAt(0) || "?"}
+                        </div>
+                      )}
+                      <div style={styles.matchInfo}>
+                        <div style={styles.matchName}>
+                          {profile?.displayName || "Unknown"}
+                        </div>
                       </div>
-                    )}
-                    <div style={styles.matchInfo}>
-                      <div style={styles.matchName}>
-                        {profile?.displayName || "Unknown"}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div style={styles.chatArea}>
-            {selectedMatch && selectedProfile ? (
+          {selectedMatch && (
+            <>
+              {/* Back button for mobile */}
+              <button
+                onClick={() => setSelectedMatch(null)}
+                style={styles.backButton}
+              >
+                ← Back to Matches
+              </button>
+              
+              <div style={styles.chatArea}>
+            {selectedProfile ? (
               <>
                 <div style={styles.chatHeader}>
                   {selectedProfile.profilePictureUrl ? (
@@ -251,7 +260,9 @@ export default function MatchesMessagesPage() {
                 <p>Select a match to start chatting</p>
               </div>
             )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -261,9 +272,11 @@ export default function MatchesMessagesPage() {
 const styles = {
   container: {
     minHeight: "100vh",
-    padding: "20px",
+    padding: "16px",
     paddingBottom: "100px",
-    paddingTop: "20px",
+    paddingTop: "16px",
+    width: "100%",
+    boxSizing: "border-box",
   },
   header: {
     marginBottom: "24px",
@@ -288,17 +301,35 @@ const styles = {
     border: "1px solid rgba(167, 139, 250, 0.2)",
   },
   layout: {
-    display: "grid",
-    gridTemplateColumns: "300px 1fr",
+    display: "flex",
+    flexDirection: "column",
     gap: "20px",
     height: "calc(100vh - 200px)",
+    minHeight: "calc(100vh - 200px)",
+    width: "100%",
   },
   sidebar: {
+    display: "none", // Hidden on mobile
+  },
+  mobileMatchesList: {
     backgroundColor: "rgba(45, 53, 97, 0.95)",
     borderRadius: "12px",
     padding: "16px",
     border: "1px solid rgba(167, 139, 250, 0.2)",
-    overflowY: "auto",
+    width: "100%",
+  },
+  backButton: {
+    padding: "12px 20px",
+    backgroundColor: "rgba(124, 58, 237, 0.3)",
+    color: "#a78bfa",
+    border: "1px solid rgba(124, 58, 237, 0.4)",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "15px",
+    fontWeight: "600",
+    marginBottom: "10px",
+    width: "100%",
+    textAlign: "left",
   },
   sidebarTitle: {
     color: "#a78bfa",
@@ -360,13 +391,17 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
   },
   chatHeader: {
     display: "flex",
     alignItems: "center",
     gap: "16px",
-    padding: "20px",
+    padding: "16px",
     borderBottom: "1px solid rgba(167, 139, 250, 0.2)",
+    flexShrink: 0,
   },
   chatAvatar: {
     width: "56px",
@@ -399,11 +434,15 @@ const styles = {
   messagesContainer: {
     flex: 1,
     overflowY: "auto",
-    padding: "20px",
+    overflowX: "hidden",
+    padding: "16px",
     backgroundColor: "rgba(26, 31, 58, 0.3)",
     display: "flex",
     flexDirection: "column",
     gap: "12px",
+    minHeight: 0,
+    width: "100%",
+    boxSizing: "border-box",
   },
   emptyMessages: {
     textAlign: "center",
@@ -412,11 +451,14 @@ const styles = {
     fontStyle: "italic",
   },
   messageBubble: {
-    maxWidth: "70%",
+    maxWidth: "85%",
+    minWidth: "120px",
     padding: "12px 16px",
     backgroundColor: "rgba(45, 53, 97, 0.8)",
     borderRadius: "12px",
     border: "1px solid rgba(167, 139, 250, 0.2)",
+    wordWrap: "break-word",
+    overflowWrap: "break-word",
   },
   messageBubbleOwn: {
     alignSelf: "flex-end",
@@ -443,11 +485,15 @@ const styles = {
   messageForm: {
     display: "flex",
     gap: "12px",
-    padding: "20px",
+    padding: "16px",
     borderTop: "1px solid rgba(167, 139, 250, 0.2)",
+    flexShrink: 0,
+    width: "100%",
+    boxSizing: "border-box",
   },
   messageInput: {
     flex: 1,
+    minWidth: 0,
     padding: "12px 16px",
     fontSize: "15px",
     border: "1px solid rgba(167, 139, 250, 0.3)",
@@ -455,9 +501,11 @@ const styles = {
     outline: "none",
     backgroundColor: "rgba(26, 31, 58, 0.7)",
     color: "#fff",
+    width: "100%",
+    boxSizing: "border-box",
   },
   sendButton: {
-    padding: "12px 24px",
+    padding: "12px 20px",
     backgroundColor: "#7c3aed",
     color: "white",
     border: "none",
@@ -466,6 +514,8 @@ const styles = {
     fontSize: "15px",
     fontWeight: "600",
     transition: "all 0.2s",
+    flexShrink: 0,
+    whiteSpace: "nowrap",
   },
   noSelection: {
     display: "flex",

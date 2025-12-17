@@ -4,15 +4,11 @@ import {
   getAllUserProfiles,
   calculateCompatibility,
   getUserProfile,
-  createMatch,
-  checkMatch,
   getMatches,
   likeUser,
   passUser,
   getUserLikes,
   getUserPasses,
-  hasLikedUser,
-  hasPassedUser,
   upsertUserProfile,
   sendMessage,
 } from "./services/firestore";
@@ -160,17 +156,6 @@ export default function ProfilesPage() {
     );
   }
 
-  function handleNext() {
-    if (currentIndex < profiles.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  }
-
-  function handlePrevious() {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  }
 
   function handleCloseMatchPopup() {
     setShowMatchPopup(false);
@@ -266,11 +251,6 @@ export default function ProfilesPage() {
   }
 
   const currentProfile = profiles[currentIndex];
-  const matched = isMatched(currentProfile.id);
-  const canMessage =
-    matched ||
-    currentProfile.openToNonMatches ||
-    currentUserProfile?.openToNonMatches;
 
   const currentProfileForMessage = messagePopupUserId 
     ? profiles.find(p => p.id === messagePopupUserId) 
@@ -770,9 +750,6 @@ const styles = {
     fontSize: "16px",
     lineHeight: "1.6",
     margin: 0,
-  },
-  preferencesSection: {
-    marginTop: "24px",
   },
   preferencesList: {
     display: "flex",

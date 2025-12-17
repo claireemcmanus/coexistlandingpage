@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { validateEmail, validatePassword } from "./utils/validation";
 import "./AuthPage.css";
 
 export default function AuthPage() {
@@ -9,69 +10,146 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
+  const { login, signup, currentUser } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      console.log("AuthPage: User already logged in, redirecting...");
+      navigate("/", { replace: true });
+    }
+  }, [currentUser, navigate]);
+
+  // Prevent scrolling on auth page
+  useEffect(() => {
+    // Prevent body scroll
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
+    return () => {
+      // Re-enable scrolling when component unmounts
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
     
-    if (!email || !password) {
-      setError("Please fill in all fields");
+    // Clear previous errors
+    setError("");
+
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      setError(emailValidation.error);
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
+    // Validate password
+    if (!isLogin) {
+      // Only validate password strength on signup
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        setError(passwordValidation.error);
+        return;
+      }
+    } else {
+      // On login, just check if password is provided
+      if (!password || password.trim() === "") {
+        setError("Password is required");
+        return;
+      }
     }
 
     try {
-      setError("");
       setLoading(true);
       
+      console.log("Attempting to", isLogin ? "login" : "signup", "with email:", email);
+      
       if (isLogin) {
-        await login(email, password);
-        // ProfileCheck will redirect to profile setup if needed
-        navigate("/");
+        const userCredential = await login(email, password);
+        console.log("✅ Login successful, user:", userCredential.user?.uid);
+        console.log("✅ User email:", userCredential.user?.email);
+        console.log("✅ Email verified:", userCredential.user?.emailVerified);
+        
+        // Check if email is verified
+        if (!userCredential.user?.emailVerified) {
+          setLoading(false);
+          setError("Please verify your email before continuing. Check your inbox for the verification link.");
+          return;
+        }
+        
+        setLoading(false);
+        
+        // Wait a bit longer to ensure auth state is set
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log("🚀 Navigating to / after login...");
+        navigate("/", { replace: true });
       } else {
-        await signup(email, password);
-        // User is automatically signed in after signup, redirect to profile setup
-        navigate("/profile-setup");
+        const userCredential = await signup(email, password);
+        console.log("✅ Signup successful, user:", userCredential.user?.uid);
+        console.log("✅ User email:", userCredential.user?.email);
+        
+        // Email verification email should have been sent by AuthContext
+        setLoading(false);
+        setError(""); // Clear any errors
+        
+        // Show success message - user needs to verify email
+        // We'll show this as a success message instead of error
+        setError("✓ Account created! Please check your email to verify your account. You must verify your email before creating your profile.");
+        
+        // Don't navigate - user needs to verify email first
+        // They can come back and login after verification
       }
     } catch (err) {
       console.error("Authentication error:", err);
-      // Provide more user-friendly error messages
-      let errorMessage = "Failed to authenticate";
+      console.error("Error code:", err.code);
+      console.error("Error message:", err.message);
+      
+      // Provide specific error messages
+      let errorMessage = "";
       
       if (err.code === "auth/email-already-in-use") {
-        errorMessage = "This email is already registered. Please sign in instead.";
+        errorMessage = "This email is already registered. Please sign in instead, or use a different email address.";
       } else if (err.code === "auth/invalid-email") {
-        errorMessage = "Please enter a valid email address.";
+        errorMessage = "Please enter a valid email address (example@example.com)";
+      } else if (err.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email. Please sign up first.";
+      } else if (err.code === "auth/wrong-password") {
+        errorMessage = "Incorrect password. Please try again.";
+      } else if (err.code === "auth/invalid-credential") {
+        errorMessage = "Invalid email or password. Please check your credentials and try again.";
       } else if (err.code === "auth/operation-not-allowed") {
         errorMessage = "Email/password authentication is not enabled. Please contact support.";
       } else if (err.code === "auth/weak-password") {
-        errorMessage = "Password is too weak. Please use a stronger password.";
+        errorMessage = "Password does not meet requirements. Password must be at least 8 characters, contain an uppercase letter, a number, and only use allowed characters.";
       } else if (err.code === "auth/network-request-failed") {
-        errorMessage = "Network error. Please check your internet connection.";
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (err.code === "auth/too-many-requests") {
+        errorMessage = "Too many failed attempts. Please wait a few minutes before trying again.";
       } else if (err.message) {
         errorMessage = err.message;
+      } else {
+        errorMessage = "An error occurred. Please try again.";
       }
       
       setError(errorMessage);
-    } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div style={styles.container}>
+    <div style={{...styles.container, overflow: 'hidden', height: '100vh'}}>
       <div style={styles.card}>
         <h2 style={styles.title}>
           {isLogin ? "Sign In" : "Sign Up"}
         </h2>
         
         {error && (
-          <div style={styles.error}>
+          <div style={error.startsWith("✓") ? styles.success : styles.error}>
             {error}
           </div>
         )}
@@ -82,10 +160,13 @@ export default function AuthPage() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(""); // Clear error when user types
+              }}
               style={styles.input}
               className="auth-input"
-              placeholder="Enter your email"
+              placeholder="Enter email"
               disabled={loading}
             />
           </div>
@@ -95,12 +176,20 @@ export default function AuthPage() {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError(""); // Clear error when user types
+              }}
               style={styles.input}
               className="auth-input"
-              placeholder="Enter your password"
+              placeholder={isLogin ? "Enter password" : "Create a password"}
               disabled={loading}
             />
+            {!isLogin && (
+              <div style={styles.passwordHint}>
+                Password must be at least 8 characters, contain an uppercase letter, a number, and only use letters, numbers, and: !@#$%^&*
+              </div>
+            )}
           </div>
 
           <button
@@ -136,11 +225,14 @@ export default function AuthPage() {
 
 const styles = {
   container: {
-    minHeight: "100vh",
+    height: "100vh",
+    maxHeight: "100vh",
+    overflow: "hidden",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
+    boxSizing: "border-box",
   },
   card: {
     backgroundColor: "rgba(45, 53, 97, 0.95)",
@@ -204,6 +296,15 @@ const styles = {
     fontSize: "14px",
     border: "1px solid rgba(220, 38, 38, 0.3)",
   },
+  success: {
+    backgroundColor: "rgba(34, 197, 94, 0.2)",
+    color: "#86efac",
+    padding: "12px",
+    borderRadius: "6px",
+    marginBottom: "20px",
+    fontSize: "14px",
+    border: "1px solid rgba(34, 197, 94, 0.3)",
+  },
   switch: {
     marginTop: "20px",
     textAlign: "center",
@@ -221,6 +322,13 @@ const styles = {
     fontSize: "14px",
     padding: 0,
     transition: "color 0.2s",
+  },
+  passwordHint: {
+    fontSize: "12px",
+    color: "#a5b4fc",
+    marginTop: "4px",
+    opacity: 0.8,
+    lineHeight: "1.4",
   },
 };
 

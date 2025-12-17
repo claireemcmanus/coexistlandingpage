@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import AuthPage from "./AuthPage";
 import ProfileSetupPage from "./ProfileSetupPage";
@@ -12,10 +12,18 @@ import ProfileCheck from "./components/ProfileCheck";
 import BottomTabs from "./components/BottomTabs";
 
 function App() {
+  console.log('App component rendering');
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <div style={{ 
+      minHeight: '-webkit-fill-available',
+      width: '100%',
+      overflow: 'auto', 
+      background: 'transparent',
+      position: 'relative'
+    }}>
+      <AuthProvider>
+        <Router>
+          <Routes>
           <Route
             path="/profile-setup"
             element={
@@ -89,9 +97,10 @@ function App() {
           />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<Navigate to="/matches" />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </div>
   );
 }
 
