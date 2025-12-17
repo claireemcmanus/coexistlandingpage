@@ -5,8 +5,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendEmailVerification,
 } from "firebase/auth";
+import { createVerificationCode, verifyCode as verifyVerificationCode, deleteVerificationCode } from "../services/verificationService";
+import { sendVerificationCodeEmail } from "../services/emailService";
 
 const AuthContext = createContext({});
 
@@ -40,14 +41,15 @@ export function AuthProvider({ children }) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // Send email verification after signup
+      // Send verification code after signup
       if (userCredential.user) {
         try {
-          await sendEmailVerification(userCredential.user);
-          console.log("✅ Verification email sent successfully");
+          const code = await createVerificationCode(userCredential.user.uid, email);
+          await sendVerificationCodeEmail(email, code);
+          console.log("✅ Verification code sent successfully");
         } catch (verifyError) {
-          console.error("Failed to send verification email:", verifyError);
-          // Don't fail signup if verification email fails - user can request resend later
+          console.error("Failed to send verification code:", verifyError);
+          // Don't fail signup if verification code fails - user can request resend later
           // The error is logged but signup still succeeds
         }
       }
@@ -92,11 +94,40 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   }
 
-  function sendVerificationEmail() {
-    if (currentUser && !currentUser.emailVerified) {
-      return sendEmailVerification(currentUser);
+  async function sendVerificationCode() {
+    if (!currentUser || currentUser.emailVerified) {
+      return Promise.reject(new Error("User not found or already verified"));
     }
-    return Promise.reject(new Error("User not found or already verified"));
+    
+    try {
+      const code = await createVerificationCode(currentUser.uid, currentUser.email);
+      await sendVerificationCodeEmail(currentUser.email, code);
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to send verification code:", error);
+      throw error;
+    }
+  }
+
+  async function verifyCode(inputCode) {
+    if (!currentUser) {
+      return Promise.reject(new Error("User not found"));
+    }
+
+    const result = await verifyVerificationCode(currentUser.uid, inputCode);
+    
+    if (result.valid) {
+      // Code is verified and emailVerified is set in Firestore by verificationService
+      // Delete the verification code
+      await deleteVerificationCode(currentUser.uid);
+      
+      // Reload the user to refresh state
+      await currentUser.reload();
+      
+      return { success: true };
+    } else {
+      throw new Error(result.error || "Invalid verification code");
+    }
   }
 
   useEffect(() => {
@@ -235,7 +266,8 @@ export function AuthProvider({ children }) {
     signup,
     login,
     logout,
-    sendVerificationEmail,
+    sendVerificationCode,
+    verifyCode,
   };
 
   return (

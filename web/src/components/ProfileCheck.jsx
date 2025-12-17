@@ -17,14 +17,6 @@ export default function ProfileCheck({ children }) {
         return;
       }
 
-      // Check if email is verified first
-      if (!currentUser.emailVerified) {
-        console.log("ProfileCheck: Email not verified");
-        setNeedsVerification(true);
-        setLoading(false);
-        return;
-      }
-
       console.log("ProfileCheck: Checking profile for user:", currentUser.uid);
       
       try {
@@ -38,6 +30,17 @@ export default function ProfileCheck({ children }) {
         
         console.log("ProfileCheck: Profile retrieved:", profile ? "exists" : "null");
         console.log("ProfileCheck: profileComplete:", profile?.profileComplete);
+        console.log("ProfileCheck: emailVerified (Firestore):", profile?.emailVerified);
+        console.log("ProfileCheck: emailVerified (Auth):", currentUser.emailVerified);
+        
+        // Check if email is verified (check both Firestore and Auth)
+        const isEmailVerified = profile?.emailVerified || currentUser.emailVerified;
+        if (!isEmailVerified) {
+          console.log("ProfileCheck: Email not verified");
+          setNeedsVerification(true);
+          setLoading(false);
+          return;
+        }
         
         if (!profile || !profile.profileComplete) {
           console.log("ProfileCheck: Profile incomplete, redirecting to setup");
@@ -111,7 +114,7 @@ export default function ProfileCheck({ children }) {
             Email Verification Required
           </h2>
           <p style={{ marginBottom: "20px", color: "#c4b5fd", lineHeight: "1.6" }}>
-            Please verify your email address before continuing. We've sent a verification link to:
+            Please verify your email address before continuing. We've sent a verification code to:
           </p>
           <p style={{ 
             marginBottom: "20px", 
@@ -123,10 +126,10 @@ export default function ProfileCheck({ children }) {
             {currentUser?.email}
           </p>
           <p style={{ marginBottom: "30px", color: "#a5b4fc", fontSize: "14px", lineHeight: "1.6" }}>
-            Click the link in the email to verify your account. After verification, you can refresh this page or log in again.
+            Check your email for a 6-digit verification code. After entering the code, you can continue to create your profile.
           </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => window.location.href = "/auth"}
             style={{
               width: "100%",
               padding: "12px",
@@ -140,7 +143,7 @@ export default function ProfileCheck({ children }) {
               transition: "all 0.2s",
             }}
           >
-            I've Verified My Email
+            Go to Verification
           </button>
         </div>
       </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { validateEmail, validatePassword } from "./utils/validation";
+import { getUserProfile } from "./services/firestore";
 import "./AuthPage.css";
 
 export default function AuthPage() {
@@ -10,7 +11,10 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, signup, currentUser } = useAuth();
+  const [showVerificationCode, setShowVerificationCode] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [resendingCode, setResendingCode] = useState(false);
+  const { login, signup, currentUser, sendVerificationCode, verifyCode } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already logged in
@@ -72,12 +76,24 @@ export default function AuthPage() {
         const userCredential = await login(email, password);
         console.log("✅ Login successful, user:", userCredential.user?.uid);
         console.log("✅ User email:", userCredential.user?.email);
-        console.log("✅ Email verified:", userCredential.user?.emailVerified);
+        console.log("✅ Email verified (Auth):", userCredential.user?.emailVerified);
         
-        // Check if email is verified
-        if (!userCredential.user?.emailVerified) {
+        // Check if email is verified (check both Firestore and Auth)
+        let isEmailVerified = userCredential.user?.emailVerified;
+        if (!isEmailVerified) {
+          // Check Firestore profile for email verification
+          try {
+            const profile = await getUserProfile(userCredential.user.uid);
+            isEmailVerified = profile?.emailVerified || false;
+            console.log("✅ Email verified (Firestore):", profile?.emailVerified);
+          } catch (error) {
+            console.error("Error checking profile:", error);
+          }
+        }
+        
+        if (!isEmailVerified) {
           setLoading(false);
-          setError("Please verify your email before continuing. Check your inbox for the verification link.");
+          setError("Please verify your email before continuing. Check your inbox for the verification code.");
           return;
         }
         
@@ -93,16 +109,12 @@ export default function AuthPage() {
         console.log("✅ Signup successful, user:", userCredential.user?.uid);
         console.log("✅ User email:", userCredential.user?.email);
         
-        // Email verification email should have been sent by AuthContext
+        // Verification code should have been sent by AuthContext
         setLoading(false);
         setError(""); // Clear any errors
         
-        // Show success message - user needs to verify email
-        // We'll show this as a success message instead of error
-        setError("✓ Account created! Please check your email to verify your account. You must verify your email before creating your profile.");
-        
-        // Don't navigate - user needs to verify email first
-        // They can come back and login after verification
+        // Show verification code input screen
+        setShowVerificationCode(true);
       }
     } catch (err) {
       console.error("Authentication error:", err);
@@ -139,6 +151,136 @@ export default function AuthPage() {
       setError(errorMessage);
       setLoading(false);
     }
+  }
+
+  async function handleVerifyCode(e) {
+    e.preventDefault();
+    setError("");
+
+    if (!verificationCode || verificationCode.length !== 6) {
+      setError("Please enter a valid 6-digit verification code");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await verifyCode(verificationCode);
+      setLoading(false);
+      
+      // Code verified successfully
+      setError("✓ Email verified! Redirecting...");
+      
+      // Wait a moment then navigate
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("Verification error:", err);
+      setError(err.message || "Invalid verification code. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  async function handleResendCode() {
+    try {
+      setResendingCode(true);
+      setError("");
+      await sendVerificationCode();
+      setError("✓ Verification code resent! Check your email.");
+      setTimeout(() => setError(""), 3000);
+    } catch (err) {
+      console.error("Resend error:", err);
+      setError(err.message || "Failed to resend code. Please try again.");
+    } finally {
+      setResendingCode(false);
+    }
+  }
+
+  // Show verification code input screen
+  if (showVerificationCode) {
+    return (
+      <div style={{...styles.container, overflow: 'hidden', height: '100vh'}}>
+        <div style={styles.card}>
+          <h2 style={styles.title}>Verify Your Email</h2>
+          
+          <p style={styles.verificationText}>
+            We've sent a 6-digit verification code to:
+          </p>
+          <p style={styles.verificationEmail}>{email}</p>
+          <p style={styles.verificationSubtext}>
+            Please enter the code below to verify your email address.
+          </p>
+
+          {error && (
+            <div style={error.startsWith("✓") ? styles.success : styles.error}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleVerifyCode} style={styles.form}>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Verification Code</label>
+              <input
+                type="text"
+                value={verificationCode}
+                onChange={(e) => {
+                  // Only allow numbers and limit to 6 digits
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setVerificationCode(value);
+                  setError("");
+                }}
+                style={styles.codeInput}
+                className="auth-input"
+                placeholder="000000"
+                disabled={loading}
+                maxLength={6}
+                autoFocus
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || verificationCode.length !== 6}
+              style={{
+                ...styles.button,
+                opacity: verificationCode.length !== 6 ? 0.5 : 1,
+                cursor: verificationCode.length !== 6 ? 'not-allowed' : 'pointer',
+              }}
+              className="auth-button"
+            >
+              {loading ? "Verifying..." : "Verify Email"}
+            </button>
+          </form>
+
+          <div style={styles.resendContainer}>
+            <p style={styles.resendText}>
+              Didn't receive the code?
+            </p>
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={resendingCode}
+              style={styles.resendButton}
+            >
+              {resendingCode ? "Sending..." : "Resend Code"}
+            </button>
+          </div>
+
+          <div style={styles.switch}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowVerificationCode(false);
+                setVerificationCode("");
+                setError("");
+              }}
+              style={styles.switchButton}
+            >
+              ← Back to Sign Up
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -329,6 +471,59 @@ const styles = {
     marginTop: "4px",
     opacity: 0.8,
     lineHeight: "1.4",
+  },
+  verificationText: {
+    color: "#c4b5fd",
+    fontSize: "14px",
+    textAlign: "center",
+    marginBottom: "8px",
+  },
+  verificationEmail: {
+    color: "#a78bfa",
+    fontSize: "16px",
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: "16px",
+    wordBreak: "break-all",
+  },
+  verificationSubtext: {
+    color: "#a5b4fc",
+    fontSize: "13px",
+    textAlign: "center",
+    marginBottom: "24px",
+    lineHeight: "1.5",
+  },
+  codeInput: {
+    padding: "12px",
+    fontSize: "24px",
+    letterSpacing: "8px",
+    textAlign: "center",
+    border: "1px solid rgba(167, 139, 250, 0.3)",
+    borderRadius: "6px",
+    outline: "none",
+    transition: "all 0.2s",
+    backgroundColor: "rgba(26, 31, 58, 0.5)",
+    color: "#fff",
+    fontFamily: "monospace",
+  },
+  resendContainer: {
+    marginTop: "20px",
+    textAlign: "center",
+  },
+  resendText: {
+    color: "#a5b4fc",
+    fontSize: "14px",
+    marginBottom: "8px",
+  },
+  resendButton: {
+    background: "none",
+    border: "none",
+    color: "#a78bfa",
+    cursor: "pointer",
+    textDecoration: "underline",
+    fontSize: "14px",
+    padding: "4px 8px",
+    transition: "color 0.2s",
   },
 };
 
