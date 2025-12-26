@@ -3,7 +3,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { validateEmail, validatePassword } from "./utils/validation";
 import { getUserProfile } from "./services/firestore";
-import ShaderBackground from "./components/ui/shader-background";
+// import ShaderBackground from "./components/ui/shader-background"; // Commented out - component not found
 import "./AuthPage.css";
 
 export default function AuthPage() {
@@ -211,7 +211,6 @@ export default function AuthPage() {
   if (showVerificationScreen) {
     return (
       <div style={{...styles.container, overflow: 'hidden', height: '100vh'}}>
-        <ShaderBackground />
         <div style={styles.card}>
           <h2 style={styles.title}>Verify Your Email</h2>
           
@@ -303,7 +302,6 @@ export default function AuthPage() {
 
   return (
     <div style={{...styles.container, overflow: 'hidden', height: '100vh'}}>
-      <ShaderBackground />
       <div style={styles.card}>
         <h2 style={styles.title}>
           {isLogin ? "Sign In" : "Sign Up"}
