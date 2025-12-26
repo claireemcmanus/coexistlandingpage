@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Stay updated on coexist launch - Get notified when we launch and be among the first 200 users to get free premium!">
+    <title>Stay Updated - coexist</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .signup-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 120px 20px 80px;
+        }
+        .signup-box {
+            background: var(--bg-card);
+            padding: 3rem;
+            border-radius: 16px;
+            border: 1px solid rgba(167, 139, 250, 0.2);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        .signup-box h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--secondary-color);
+        }
+        .signup-box p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        .premium-badge {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+        .email-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .email-input {
+            padding: 14px 18px;
+            border-radius: 8px;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            background: rgba(26, 31, 58, 0.5);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        .email-input:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+        }
+        .email-input::placeholder {
+            color: var(--text-muted);
+        }
+        .submit-btn {
+            padding: 14px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .submit-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+        }
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .success-message {
+            display: none;
+            color: #4ade80;
+            margin-top: 1rem;
+            font-weight: 600;
+        }
+        .error-message {
+            display: none;
+            color: #f87171;
+            margin-top: 1rem;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .back-link:hover {
+            color: var(--secondary-color);
+        }
+        @media (max-width: 480px) {
+            .signup-box {
+                padding: 2rem 1.5rem;
+            }
+            .signup-box h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <a href="index.html" style="text-decoration: none; color: inherit;"><h1>coexist</h1></a>
+                </div>
+                <div class="nav-links">
+                    <a href="index.html#features">Features</a>
+                    <a href="index.html#how-it-works">How It Works</a>
+                    <a href="index.html#about">About</a>
+                    <a href="signup.html" class="btn-primary">Stay Updated</a>
+                </div>
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="index.html#features">Features</a>
+            <a href="index.html#how-it-works">How It Works</a>
+            <a href="index.html#about">About</a>
+            <a href="signup.html" class="btn-primary">Stay Updated</a>
+        </div>
+    </nav>
+
+    <!-- Signup Section -->
+    <section class="signup-container">
+        <div class="signup-box">
+            <h1>Stay Updated</h1>
+            <p>Be the first to know when coexist launches. Get updates on our progress and launch date.</p>
+            
+            <div class="premium-badge">
+                first 200 users get free premium
+            </div>
+
+            <form class="email-form" id="emailForm">
+                <input 
+                    type="email" 
+                    class="email-input" 
+                    placeholder="Enter your email address" 
+                    required
+                    id="emailInput"
+                >
+                <label style="display: flex; align-items: start; gap: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; margin-top: -0.5rem;">
+                    <input type="checkbox" required id="privacyCheck" style="margin-top: 0.2rem; cursor: pointer;">
+                    <span>I agree to the <a href="privacy-policy.html" style="color: var(--secondary-color); text-decoration: underline;">Privacy Policy</a> and <a href="terms-of-service.html" style="color: var(--secondary-color); text-decoration: underline;">Terms of Service</a></span>
+                </label>
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    Notify Me
+                </button>
+                <div class="success-message" id="successMessage">
+                    ✓ Thanks! We'll notify you when we launch.
+                </div>
+                <div class="error-message" id="errorMessage">
+                    Something went wrong. Please try again.
+                </div>
+            </form>
+
+            <a href="index.html" class="back-link">← Back to home</a>
+        </div>
+    </section>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDs9B8K1X8xmyw77l4BM55z7nTZzZ0mf5M",
+            authDomain: "collegeconnect-3906d.firebaseapp.com",
+            projectId: "collegeconnect-3906d",
+            storageBucket: "collegeconnect-3906d.firebasestorage.app",
+            messagingSenderId: "114960693146",
+            appId: "1:114960693146:web:bbe01ba7f0bb4f1daaec23",
+            measurementId: "G-113E6P25MQ"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Mobile menu toggle (reuse from main script)
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        if (mobileMenuToggle && mobileMenu) {
+            mobileMenuToggle.addEventListener('click', () => {
+                mobileMenu.classList.toggle('active');
+                
+                const spans = mobileMenuToggle.querySelectorAll('span');
+                if (mobileMenu.classList.contains('active')) {
+                    spans[0].style.transform = 'rotate(45deg) translate(5px, 5px)';
+                    spans[1].style.opacity = '0';
+                    spans[2].style.transform = 'rotate(-45deg) translate(7px, -6px)';
+                } else {
+                    spans[0].style.transform = 'none';
+                    spans[1].style.opacity = '1';
+                    spans[2].style.transform = 'none';
+                }
+            });
+
+            const mobileMenuLinks = mobileMenu.querySelectorAll('a');
+            mobileMenuLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.remove('active');
+                    const spans = mobileMenuToggle.querySelectorAll('span');
+                    spans[0].style.transform = 'none';
+                    spans[1].style.opacity = '1';
+                    spans[2].style.transform = 'none';
+                });
+            });
+        }
+
+        // Email form handling
+        const emailForm = document.getElementById('emailForm');
+        const emailInput = document.getElementById('emailInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+
+        emailForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = emailInput.value.trim().toLowerCase();
+            
+            if (!email) {
+                showError('Please enter a valid email address');
+                return;
+            }
+
+            // Basic email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showError('Please enter a valid email address');
+                return;
+            }
+
+            // Disable form
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            hideMessages();
+
+            try {
+                // Check if email already exists
+                const waitlistRef = collection(db, 'waitlist');
+                const q = query(waitlistRef, where('email', '==', email));
+                const querySnapshot = await getDocs(q);
+                
+                if (!querySnapshot.empty) {
+                    showError('This email is already on the waitlist!');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Notify Me';
+                    return;
+                }
+
+                // Add email to Firestore
+                await addDoc(collection(db, 'waitlist'), {
+                    email: email,
+                    timestamp: new Date(),
+                    status: 'pending'
+                });
+                
+                showSuccess();
+                emailInput.value = '';
+                
+            } catch (error) {
+                console.error('Error adding email:', error);
+                showError('Failed to submit. Please try again later.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Notify Me';
+            }
+        });
+
+        function showSuccess() {
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        }
+
+        function hideMessages() {
+            successMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+        }
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>
+
