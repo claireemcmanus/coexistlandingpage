@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
+import { useSearchParams } from "react-router-dom";
 import {
   getAllUserProfiles,
   calculateCompatibility,
@@ -11,11 +12,16 @@ import {
   getUserPasses,
   upsertUserProfile,
   sendMessage,
+  blockUser,
+  reportUser,
+  getBlockedUsers,
 } from "./services/firestore";
 import "./ProfilesPage.css";
 
 export default function ProfilesPage() {
   const { currentUser } = useAuth();
+  const [searchParams] = useSearchParams();
+  const viewUserId = searchParams.get("viewUserId");
   const [profiles, setProfiles] = useState([]);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -30,6 +36,9 @@ export default function ProfilesPage() {
   const [showMessagePopup, setShowMessagePopup] = useState(false);
   const [messagePopupUserId, setMessagePopupUserId] = useState(null);
   const [messageText, setMessageText] = useState("");
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -46,11 +55,20 @@ export default function ProfilesPage() {
         setSubscriptionTier(tier);
         setDirectMessagesSent(dmCount);
 
+        // Load blocked users so we can hide them
+        const userBlocked = await getBlockedUsers(currentUser.uid);
+        const blockedIds = new Set(userBlocked.map((b) => b.blockedId));
+
         // Load all other profiles
         const allProfiles = await getAllUserProfiles(currentUser.uid);
 
+        // Filter out blocked profiles
+        const visibleProfiles = allProfiles.filter(
+          (profile) => !blockedIds.has(profile.id)
+        );
+
         // Calculate compatibility for each
-        const profilesWithCompatibility = allProfiles.map((profile) => ({
+        const profilesWithCompatibility = visibleProfiles.map((profile) => ({
           ...profile,
           compatibility: calculateCompatibility(userProfile, profile),
         }));
@@ -73,12 +91,42 @@ export default function ProfilesPage() {
         // Filter out profiles that have been liked or passed
         const likedIds = userLikes.map(like => like.likedId);
         const passedIds = userPasses.map(pass => pass.passedId);
-        const filteredProfiles = profilesWithCompatibility.filter(
+        let filteredProfiles = profilesWithCompatibility.filter(
           profile => !likedIds.includes(profile.id) && !passedIds.includes(profile.id)
         );
         
-        // Limit to 10 profiles at a time
-        const limitedProfiles = filteredProfiles.slice(0, 10);
+        // If viewUserId is specified, ensure that profile is included and shown
+        if (viewUserId) {
+          const viewProfile = profilesWithCompatibility.find(p => p.id === viewUserId);
+          if (viewProfile) {
+            // Remove it from filtered list if it exists there
+            filteredProfiles = filteredProfiles.filter(p => p.id !== viewUserId);
+            // Add it to the beginning of the list
+            filteredProfiles.unshift(viewProfile);
+            // Set index to 0 to show this profile
+            setCurrentIndex(0);
+          } else {
+            // Profile might have been liked/passed, load it separately
+            try {
+              const specificProfile = await getUserProfile(viewUserId);
+              if (specificProfile) {
+                const profileWithCompatibility = {
+                  ...specificProfile,
+                  compatibility: calculateCompatibility(userProfile, specificProfile),
+                };
+                filteredProfiles.unshift(profileWithCompatibility);
+                setCurrentIndex(0);
+              }
+            } catch (error) {
+              console.error("Error loading specific profile:", error);
+            }
+          }
+        }
+        
+        // Limit to 10 profiles at a time (unless viewing a specific user)
+        const limitedProfiles = viewUserId 
+          ? filteredProfiles.slice(0, Math.max(10, filteredProfiles.length))
+          : filteredProfiles.slice(0, 10);
         
         setProfiles(limitedProfiles);
       } catch (error) {
@@ -89,7 +137,8 @@ export default function ProfilesPage() {
     }
 
     loadData();
-  }, [currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, viewUserId]);
 
   async function handleLike(userId) {
     if (!currentUser) return;
@@ -147,6 +196,44 @@ export default function ProfilesPage() {
       }
     } catch (error) {
       console.error("Error passing user:", error);
+    }
+  }
+
+  async function handleReportCurrentUserProfile() {
+    if (!currentUser || !currentProfile) return;
+
+    const reason = reportReason.trim() || "Policy violation";
+    const details = reportDetails.trim();
+
+    try {
+      // Create report
+      await reportUser({
+        reporterId: currentUser.uid,
+        reportedUserId: currentProfile.id,
+        reason,
+        context: "match",
+        additionalDetails: details,
+      });
+
+      // Block user
+      await blockUser(currentUser.uid, currentProfile.id);
+
+      // Remove from local profiles
+      const updatedProfiles = profiles.filter(
+        (p) => p.id !== currentProfile.id
+      );
+      setProfiles(updatedProfiles);
+
+      setShowReportModal(false);
+      setReportReason("");
+      setReportDetails("");
+
+      alert(
+        "Thank you for your report. This user has been blocked and our team will review their account."
+      );
+    } catch (error) {
+      console.error("Error reporting user:", error);
+      alert("Failed to submit report. Please try again.");
     }
   }
 
@@ -250,7 +337,9 @@ export default function ProfilesPage() {
     );
   }
 
-  const currentProfile = profiles[currentIndex];
+  // Ensure currentIndex is valid
+  const validIndex = Math.min(currentIndex, profiles.length - 1);
+  const currentProfile = profiles[validIndex] || profiles[0];
 
   const currentProfileForMessage = messagePopupUserId 
     ? profiles.find(p => p.id === messagePopupUserId) 
@@ -592,9 +681,76 @@ export default function ProfilesPage() {
             >
               ✈️
             </button>
+            <button
+              style={styles.reportButton}
+              onClick={() => {
+                setShowReportModal(true);
+                setReportReason("");
+                setReportDetails("");
+              }}
+              title="Report User"
+              className="report-button"
+            >
+              🚩
+            </button>
           </div>
         </div>
       </div>
+      {showReportModal && (
+        <div style={styles.reportModalOverlay}>
+          <div style={styles.reportModal}>
+            <button
+              style={styles.reportModalClose}
+              onClick={() => setShowReportModal(false)}
+            >
+              ✕
+            </button>
+            <h2 style={styles.reportModalTitle}>Report User</h2>
+            <p style={styles.reportModalText}>
+              Please tell us why you are reporting{" "}
+              <strong>{currentProfile?.displayName || "this user"}</strong>. This
+              will be reviewed by our team.
+            </p>
+            <label style={styles.reportLabel}>
+              Reason
+              <select
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                style={styles.reportSelect}
+              >
+                <option value="">Select a reason</option>
+                <option value="harassment">Harassment or bullying</option>
+                <option value="inappropriate-content">
+                  Inappropriate content
+                </option>
+                <option value="spam">Spam or scam</option>
+                <option value="fake-profile">Fake or suspicious profile</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label style={styles.reportLabel}>
+              Additional details (optional)
+              <textarea
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                style={styles.reportTextarea}
+                placeholder="Share any details that will help us understand what happened."
+              />
+            </label>
+            <button
+              style={{
+                ...styles.reportSubmitButton,
+                opacity: reportReason ? 1 : 0.6,
+                cursor: reportReason ? "pointer" : "not-allowed",
+              }}
+              onClick={handleReportCurrentUserProfile}
+              disabled={!reportReason}
+            >
+              Submit Report & Block User
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -991,6 +1147,109 @@ const styles = {
   messagePopupButtonDisabled: {
     opacity: 0.5,
     cursor: "not-allowed",
+  },
+  reportButton: {
+    width: "50px",
+    height: "50px",
+    borderRadius: "50%",
+    backgroundColor: "rgba(248, 113, 113, 0.15)",
+    color: "#fca5a5",
+    border: "2px solid rgba(248, 113, 113, 0.7)",
+    fontSize: "22px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 12px rgba(248, 113, 113, 0.3)",
+    transition: "all 0.2s",
+  },
+  reportModalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1100,
+    padding: "20px",
+  },
+  reportModal: {
+    backgroundColor: "rgba(45, 53, 97, 0.98)",
+    borderRadius: "16px",
+    padding: "24px",
+    maxWidth: "480px",
+    width: "100%",
+    border: "1px solid rgba(248, 113, 113, 0.5)",
+    position: "relative",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+  },
+  reportModalClose: {
+    position: "absolute",
+    top: "10px",
+    right: "10px",
+    background: "none",
+    border: "none",
+    color: "#fca5a5",
+    fontSize: "24px",
+    cursor: "pointer",
+  },
+  reportModalTitle: {
+    color: "#fca5a5",
+    fontSize: "22px",
+    fontWeight: "600",
+    margin: "0 0 12px 0",
+  },
+  reportModalText: {
+    color: "#e9d5ff",
+    fontSize: "14px",
+    lineHeight: "1.5",
+    margin: "0 0 16px 0",
+  },
+  reportLabel: {
+    display: "block",
+    color: "#c4b5fd",
+    fontSize: "14px",
+    marginBottom: "12px",
+  },
+  reportSelect: {
+    width: "100%",
+    marginTop: "6px",
+    padding: "10px",
+    borderRadius: "8px",
+    border: "1px solid rgba(167, 139, 250, 0.4)",
+    backgroundColor: "rgba(26, 31, 58, 0.9)",
+    color: "#e9d5ff",
+    fontSize: "14px",
+    outline: "none",
+  },
+  reportTextarea: {
+    width: "100%",
+    marginTop: "6px",
+    padding: "10px",
+    borderRadius: "8px",
+    border: "1px solid rgba(167, 139, 250, 0.4)",
+    backgroundColor: "rgba(26, 31, 58, 0.9)",
+    color: "#e9d5ff",
+    fontSize: "14px",
+    outline: "none",
+    minHeight: "80px",
+    resize: "vertical",
+  },
+  reportSubmitButton: {
+    width: "100%",
+    marginTop: "8px",
+    padding: "12px",
+    borderRadius: "8px",
+    border: "none",
+    backgroundColor: "#ef4444",
+    color: "white",
+    fontSize: "15px",
+    fontWeight: "600",
+    cursor: "pointer",
   },
   emptyState: {
     display: "flex",

@@ -11,19 +11,52 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showVerificationCode, setShowVerificationCode] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [resendingCode, setResendingCode] = useState(false);
-  const { login, signup, currentUser, sendVerificationCode, verifyCode } = useAuth();
+  const [showVerificationScreen, setShowVerificationScreen] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const { login, signup, currentUser, sendVerificationCode, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
+  // Redirect if already logged in and verified
   useEffect(() => {
-    if (currentUser) {
-      console.log("AuthPage: User already logged in, redirecting...");
+    if (currentUser && currentUser.emailVerified) {
+      console.log("AuthPage: User already logged in and verified, redirecting...");
       navigate("/", { replace: true });
     }
   }, [currentUser, navigate]);
+  
+  // Poll for email verification (if user clicked link)
+  useEffect(() => {
+    if (!showVerificationScreen || !currentUser) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        await currentUser.reload();
+        if (currentUser.emailVerified) {
+          console.log("✅ Email verified via link!");
+          setError("✓ Email verified! Redirecting...");
+          clearInterval(interval);
+          setTimeout(() => navigate("/", { replace: true }), 1000);
+        }
+      } catch (error) {
+        console.error("Error checking verification:", error);
+        // If user was deleted or token is invalid, clear the verification screen
+        if (error.code === 'auth/user-token-expired' || error.code === 'auth/user-not-found' || error.code === 'auth/user-disabled') {
+          console.log("User token expired or user deleted, clearing verification screen");
+          clearInterval(interval);
+          setShowVerificationScreen(false);
+          setError("Your session has expired. Please sign in again.");
+          // Logout to clear the invalid user state
+          try {
+            await logout();
+          } catch (logoutError) {
+            console.error("Error logging out:", logoutError);
+          }
+        }
+      }
+    }, 3000); // Check every 3 seconds
+    
+    return () => clearInterval(interval);
+  }, [showVerificationScreen, currentUser, navigate, logout]);
 
   // Prevent scrolling on auth page
   useEffect(() => {
@@ -81,19 +114,25 @@ export default function AuthPage() {
         // Check if email is verified (check both Firestore and Auth)
         let isEmailVerified = userCredential.user?.emailVerified;
         if (!isEmailVerified) {
-          // Check Firestore profile for email verification
-          try {
-            const profile = await getUserProfile(userCredential.user.uid);
-            isEmailVerified = profile?.emailVerified || false;
-            console.log("✅ Email verified (Firestore):", profile?.emailVerified);
-          } catch (error) {
-            console.error("Error checking profile:", error);
+          // Reload user to get latest emailVerified status
+          await userCredential.user.reload();
+          isEmailVerified = userCredential.user.emailVerified;
+          
+          // Also check Firestore profile for email verification
+          if (!isEmailVerified) {
+            try {
+              const profile = await getUserProfile(userCredential.user.uid);
+              isEmailVerified = profile?.emailVerified || false;
+              console.log("✅ Email verified (Firestore):", profile?.emailVerified);
+            } catch (error) {
+              console.error("Error checking profile:", error);
+            }
           }
         }
         
         if (!isEmailVerified) {
           setLoading(false);
-          setError("Please verify your email before continuing. Check your inbox for the verification code.");
+          setError("Please verify your email before continuing. Check your inbox for the verification link or code.");
           return;
         }
         
@@ -109,12 +148,11 @@ export default function AuthPage() {
         console.log("✅ Signup successful, user:", userCredential.user?.uid);
         console.log("✅ User email:", userCredential.user?.email);
         
-        // Verification code should have been sent by AuthContext
         setLoading(false);
         setError(""); // Clear any errors
         
-        // Show verification code input screen
-        setShowVerificationCode(true);
+        // Show verification screen
+        setShowVerificationScreen(true);
       }
     } catch (err) {
       console.error("Authentication error:", err);
@@ -153,61 +191,41 @@ export default function AuthPage() {
     }
   }
 
-  async function handleVerifyCode(e) {
-    e.preventDefault();
-    setError("");
-
-    if (!verificationCode || verificationCode.length !== 6) {
-      setError("Please enter a valid 6-digit verification code");
-      return;
-    }
-
+  async function handleResendEmail() {
     try {
-      setLoading(true);
-      await verifyCode(verificationCode);
-      setLoading(false);
-      
-      // Code verified successfully
-      setError("✓ Email verified! Redirecting...");
-      
-      // Wait a moment then navigate
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      navigate("/", { replace: true });
-    } catch (err) {
-      console.error("Verification error:", err);
-      setError(err.message || "Invalid verification code. Please try again.");
-      setLoading(false);
-    }
-  }
-
-  async function handleResendCode() {
-    try {
-      setResendingCode(true);
+      setResendingEmail(true);
       setError("");
       await sendVerificationCode();
-      setError("✓ Verification code resent! Check your email.");
-      setTimeout(() => setError(""), 3000);
+      setError("✓ Verification email resent! Check your inbox.");
+      setTimeout(() => setError(""), 5000);
     } catch (err) {
       console.error("Resend error:", err);
-      setError(err.message || "Failed to resend code. Please try again.");
+      setError(err.message || "Failed to resend email. Please try again.");
     } finally {
-      setResendingCode(false);
+      setResendingEmail(false);
     }
   }
 
-  // Show verification code input screen
-  if (showVerificationCode) {
+  // Show verification screen
+  if (showVerificationScreen) {
     return (
       <div style={{...styles.container, overflow: 'hidden', height: '100vh'}}>
         <div style={styles.card}>
           <h2 style={styles.title}>Verify Your Email</h2>
           
+          <div style={styles.verificationIcon}>📧</div>
+          
           <p style={styles.verificationText}>
-            We've sent a 6-digit verification code to:
+            We've sent a verification email to:
           </p>
           <p style={styles.verificationEmail}>{email}</p>
+          
           <p style={styles.verificationSubtext}>
-            Please enter the code below to verify your email address.
+            Please check your inbox and click the verification link in the email to verify your account.
+          </p>
+          
+          <p style={styles.verificationSubtext}>
+            Once you click the link, you'll be automatically redirected.
           </p>
 
           {error && (
@@ -216,67 +234,65 @@ export default function AuthPage() {
             </div>
           )}
 
-          <form onSubmit={handleVerifyCode} style={styles.form}>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Verification Code</label>
-              <input
-                type="text"
-                value={verificationCode}
-                onChange={(e) => {
-                  // Only allow numbers and limit to 6 digits
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                  setVerificationCode(value);
-                  setError("");
-                }}
-                style={styles.codeInput}
-                className="auth-input"
-                placeholder="000000"
-                disabled={loading}
-                maxLength={6}
-                autoFocus
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || verificationCode.length !== 6}
-              style={{
-                ...styles.button,
-                opacity: verificationCode.length !== 6 ? 0.5 : 1,
-                cursor: verificationCode.length !== 6 ? 'not-allowed' : 'pointer',
-              }}
-              className="auth-button"
-            >
-              {loading ? "Verifying..." : "Verify Email"}
-            </button>
-          </form>
-
           <div style={styles.resendContainer}>
             <p style={styles.resendText}>
-              Didn't receive the code?
+              Didn't receive the email?
             </p>
             <button
               type="button"
-              onClick={handleResendCode}
-              disabled={resendingCode}
+              onClick={handleResendEmail}
+              disabled={resendingEmail}
               style={styles.resendButton}
             >
-              {resendingCode ? "Sending..." : "Resend Code"}
+              {resendingEmail ? "Sending..." : "Resend Email"}
             </button>
           </div>
 
           <div style={styles.switch}>
             <button
               type="button"
-              onClick={() => {
-                setShowVerificationCode(false);
-                setVerificationCode("");
-                setError("");
+              onClick={async () => {
+                try {
+                  await logout();
+                  setShowVerificationScreen(false);
+                  setError("");
+                  setIsLogin(false); // Go back to sign up
+                } catch (err) {
+                  console.error("Error logging out:", err);
+                  // Even if logout fails, clear the screen
+                  setShowVerificationScreen(false);
+                  setError("");
+                  setIsLogin(false);
+                }
               }}
               style={styles.switchButton}
             >
               ← Back to Sign Up
             </button>
+            <p style={styles.switchText}>
+              Already have an account?{" "}
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await logout();
+                    setShowVerificationScreen(false);
+                    setError("");
+                    setIsLogin(true); // Go to sign in
+                  } catch (err) {
+                    console.error("Error logging out:", err);
+                    // Even if logout fails, clear the screen
+                    setShowVerificationScreen(false);
+                    setError("");
+                    setIsLogin(true);
+                  }
+                }}
+                style={styles.switchButton}
+                className="auth-switch-button"
+              >
+                Sign In
+              </button>
+            </p>
           </div>
         </div>
       </div>
@@ -493,37 +509,25 @@ const styles = {
     marginBottom: "24px",
     lineHeight: "1.5",
   },
-  codeInput: {
-    padding: "12px",
-    fontSize: "24px",
-    letterSpacing: "8px",
-    textAlign: "center",
-    border: "1px solid rgba(167, 139, 250, 0.3)",
-    borderRadius: "6px",
-    outline: "none",
-    transition: "all 0.2s",
-    backgroundColor: "rgba(26, 31, 58, 0.5)",
-    color: "#fff",
-    fontFamily: "monospace",
-  },
   resendContainer: {
-    marginTop: "20px",
+    marginTop: "24px",
     textAlign: "center",
   },
   resendText: {
     color: "#a5b4fc",
-    fontSize: "14px",
-    marginBottom: "8px",
+    fontSize: "13px",
+    marginBottom: "12px",
   },
   resendButton: {
-    background: "none",
-    border: "none",
+    padding: "10px 20px",
+    backgroundColor: "rgba(124, 58, 237, 0.2)",
     color: "#a78bfa",
+    border: "1px solid rgba(124, 58, 237, 0.4)",
+    borderRadius: "6px",
     cursor: "pointer",
-    textDecoration: "underline",
     fontSize: "14px",
-    padding: "4px 8px",
-    transition: "color 0.2s",
+    fontWeight: "500",
+    transition: "all 0.2s",
   },
 };
 

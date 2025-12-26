@@ -12,6 +12,7 @@ import {
   doc,
   getDoc,
   deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 
 // Messages
@@ -28,27 +29,173 @@ export async function sendMessage({ roomId, text, user }) {
 }
 
 export function subscribeToMessages(roomId, callback) {
-  if (!roomId) return () => {};
+  if (!roomId) {
+    console.warn("subscribeToMessages: No roomId provided");
+    return () => {};
+  }
+  
+  console.log("subscribeToMessages: Setting up subscription for roomId:", roomId);
+  
+  // Try with orderBy first (requires index)
   const q = query(
     collection(db, "messages"),
     where("roomId", "==", roomId),
     orderBy("createdAt", "asc")
   );
+  
   return onSnapshot(
     q,
     (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      console.log("subscribeToMessages: Snapshot received, size:", snapshot.size);
+      const data = snapshot.docs.map((doc) => {
+        const docData = doc.data();
+        console.log("Message doc:", doc.id, {
+          text: docData.text,
+          roomId: docData.roomId,
+          userId: docData.userId,
+          createdAt: docData.createdAt,
+        });
+        return {
+          id: doc.id,
+          ...docData,
+        };
+      });
+      
+      // Sort by createdAt if available (fallback if orderBy didn't work)
+      data.sort((a, b) => {
+        const aTime = a.createdAt?.toDate?.() || a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.toDate?.() || b.createdAt?.seconds || 0;
+        return aTime - bTime;
+      });
+      
+      console.log("subscribeToMessages: Calling callback with", data.length, "messages");
+      console.log("subscribeToMessages: Messages:", data.map(m => ({ id: m.id, text: m.text, roomId: m.roomId })));
       callback(data);
     },
     (error) => {
-      console.error("Error subscribing to messages:", error);
-      // If index is missing, Firebase will provide a link in the console
-      callback([]);
+      console.error("❌ Error subscribing to messages:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
+      
+      // If index is missing, try without orderBy as fallback
+      if (error.code === 'failed-precondition') {
+        console.warn("⚠️ Firestore index missing! Trying fallback query without orderBy...");
+        console.warn("⚠️ Create an index for messages collection with fields: roomId (Ascending), createdAt (Ascending)");
+        
+        // Fallback: query without orderBy
+        const fallbackQ = query(
+          collection(db, "messages"),
+          where("roomId", "==", roomId)
+        );
+        
+        return onSnapshot(
+          fallbackQ,
+          (snapshot) => {
+            console.log("Fallback query: Snapshot received, size:", snapshot.size);
+            const data = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            
+            // Sort manually by createdAt
+            data.sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || a.createdAt?.seconds || 0;
+              const bTime = b.createdAt?.toDate?.() || b.createdAt?.seconds || 0;
+              return aTime - bTime;
+            });
+            
+            console.log("Fallback query: Calling callback with", data.length, "messages");
+            callback(data);
+          },
+          (fallbackError) => {
+            console.error("Fallback query also failed:", fallbackError);
+            callback([]);
+          }
+        );
+      } else {
+        callback([]);
+      }
     }
   );
+}
+
+// Get all conversations for a user (both matches and direct messages)
+export async function getAllConversations(userId) {
+  if (!userId) return { matches: [], directMessages: [] };
+  
+  try {
+    // Get all messages where user is involved
+    // We need to check both possible roomId formats: userId1_userId2 or userId2_userId1
+    const allMessages = await getDocs(collection(db, "messages"));
+    
+    // Extract unique conversation partners
+    const conversationPartners = new Set();
+    const conversationMap = new Map(); // userId -> { lastMessage, lastMessageTime }
+    
+    allMessages.docs.forEach((doc) => {
+      const message = doc.data();
+      const roomId = message.roomId;
+      
+      // Parse roomId (format: userId1_userId2 where userIds are sorted)
+      if (roomId && roomId.includes("_")) {
+        const [userId1, userId2] = roomId.split("_");
+        
+        if (userId1 === userId || userId2 === userId) {
+          const otherUserId = userId1 === userId ? userId2 : userId1;
+          conversationPartners.add(otherUserId);
+          
+          // Track last message for this conversation
+          const lastMessageTime = message.createdAt?.toDate?.() || new Date(0);
+          const existing = conversationMap.get(otherUserId);
+          
+          if (!existing || lastMessageTime > existing.lastMessageTime) {
+            conversationMap.set(otherUserId, {
+              lastMessage: message.text,
+              lastMessageTime: lastMessageTime,
+            });
+          }
+        }
+      }
+    });
+    
+    // Get matches to separate matches from direct messages
+    const matches = await getMatches(userId);
+    const matchUserIds = new Set();
+    matches.forEach((match) => {
+      const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
+      matchUserIds.add(otherUserId);
+    });
+    
+    // Separate matches and direct messages
+    const matchConversations = [];
+    const directMessageConversations = [];
+    
+    conversationPartners.forEach((otherUserId) => {
+      const conversationInfo = {
+        userId: otherUserId,
+        lastMessage: conversationMap.get(otherUserId)?.lastMessage || "",
+        lastMessageTime: conversationMap.get(otherUserId)?.lastMessageTime || new Date(0),
+      };
+      
+      if (matchUserIds.has(otherUserId)) {
+        matchConversations.push(conversationInfo);
+      } else {
+        directMessageConversations.push(conversationInfo);
+      }
+    });
+    
+    // Sort by last message time (most recent first)
+    matchConversations.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+    directMessageConversations.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+    
+    return {
+      matches: matchConversations,
+      directMessages: directMessageConversations,
+    };
+  } catch (error) {
+    console.error("Error getting conversations:", error);
+    return { matches: [], directMessages: [] };
+  }
 }
 
 // Rooms
@@ -360,6 +507,67 @@ export async function hasPassedUser(passerId, passedId) {
   return passDoc.exists();
 }
 
+// Blocks & Reports
+export async function blockUser(blockerId, blockedId) {
+  if (!blockerId || !blockedId) throw new Error("blockerId and blockedId are required");
+
+  const blockId = `${blockerId}_${blockedId}`;
+
+  return setDoc(doc(db, "blocks", blockId), {
+    blockerId,
+    blockedId,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function getBlockedUsers(userId) {
+  if (!userId) return [];
+
+  const q = query(
+    collection(db, "blocks"),
+    where("blockerId", "==", userId)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+}
+
+export async function isUserBlocked(userId1, userId2) {
+  if (!userId1 || !userId2) return false;
+
+  const blockId1 = `${userId1}_${userId2}`;
+  const blockId2 = `${userId2}_${userId1}`;
+
+  const block1 = await getDoc(doc(db, "blocks", blockId1));
+  const block2 = await getDoc(doc(db, "blocks", blockId2));
+
+  return block1.exists() || block2.exists();
+}
+
+export async function reportUser({
+  reporterId,
+  reportedUserId,
+  reason,
+  context = "match",
+  additionalDetails = "",
+}) {
+  if (!reporterId || !reportedUserId) {
+    throw new Error("reporterId and reportedUserId are required");
+  }
+
+  return addDoc(collection(db, "reports"), {
+    reporterId,
+    reportedUserId,
+    reason: reason || "No reason provided",
+    additionalDetails,
+    context, // 'match' or 'message'
+    createdAt: serverTimestamp(),
+  });
+}
+
 // Saved Apartments
 export async function saveApartment(userId, apartmentData) {
   if (!userId) throw new Error("userId is required");
@@ -383,4 +591,153 @@ export async function getSavedApartments(userId) {
 export async function removeSavedApartment(userId, apartmentId) {
   if (!userId || !apartmentId) throw new Error("userId and apartmentId are required");
   return deleteDoc(doc(db, "users", userId, "savedApartments", apartmentId));
+}
+
+// Delete user account - removes all user data from Firestore
+export async function deleteUserAccount(userId) {
+  if (!userId) throw new Error("userId is required");
+
+  console.log("🗑️ Starting account deletion for user:", userId);
+  
+  const batch = writeBatch(db);
+  let deleteCount = 0;
+
+  try {
+    // 1. Delete user profile
+    const userProfileRef = doc(db, "users", userId);
+    const userProfile = await getDoc(userProfileRef);
+    if (userProfile.exists()) {
+      batch.delete(userProfileRef);
+      deleteCount++;
+      console.log("✅ Queued user profile for deletion");
+    }
+
+    // 2. Delete all matches where user is involved
+    const matches1 = await getDocs(
+      query(collection(db, "matches"), where("userId1", "==", userId))
+    );
+    matches1.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+
+    const matches2 = await getDocs(
+      query(collection(db, "matches"), where("userId2", "==", userId))
+    );
+    matches2.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+    console.log(`✅ Queued ${matches1.size + matches2.size} matches for deletion`);
+
+    // 3. Delete all likes where user is liker or liked
+    const likes1 = await getDocs(
+      query(collection(db, "likes"), where("likerId", "==", userId))
+    );
+    likes1.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+
+    const likes2 = await getDocs(
+      query(collection(db, "likes"), where("likedId", "==", userId))
+    );
+    likes2.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+    console.log(`✅ Queued ${likes1.size + likes2.size} likes for deletion`);
+
+    // 4. Delete all passes where user is passer or passed
+    const passes1 = await getDocs(
+      query(collection(db, "passes"), where("passerId", "==", userId))
+    );
+    passes1.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+
+    const passes2 = await getDocs(
+      query(collection(db, "passes"), where("passedId", "==", userId))
+    );
+    passes2.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+    console.log(`✅ Queued ${passes1.size + passes2.size} passes for deletion`);
+
+    // 5. Delete all messages where user is involved
+    const allMessages = await getDocs(collection(db, "messages"));
+    allMessages.docs.forEach((doc) => {
+      const message = doc.data();
+      const roomId = message.roomId;
+      if (roomId && roomId.includes("_")) {
+        const [userId1, userId2] = roomId.split("_");
+        if (userId1 === userId || userId2 === userId) {
+          batch.delete(doc.ref);
+          deleteCount++;
+        }
+      }
+    });
+    console.log(`✅ Queued messages for deletion`);
+
+    // 6. Delete all blocks where user is blocker or blocked
+    const blocks1 = await getDocs(
+      query(collection(db, "blocks"), where("blockerId", "==", userId))
+    );
+    blocks1.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+
+    const blocks2 = await getDocs(
+      query(collection(db, "blocks"), where("blockedId", "==", userId))
+    );
+    blocks2.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+    console.log(`✅ Queued ${blocks1.size + blocks2.size} blocks for deletion`);
+
+    // 7. Delete all reports where user is reporter or reported
+    const reports1 = await getDocs(
+      query(collection(db, "reports"), where("reporterId", "==", userId))
+    );
+    reports1.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+
+    const reports2 = await getDocs(
+      query(collection(db, "reports"), where("reportedUserId", "==", userId))
+    );
+    reports2.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+    console.log(`✅ Queued ${reports1.size + reports2.size} reports for deletion`);
+
+    // 8. Delete saved apartments
+    const savedApartments = await getDocs(
+      collection(db, "users", userId, "savedApartments")
+    );
+    savedApartments.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+      deleteCount++;
+    });
+    console.log(`✅ Queued ${savedApartments.size} saved apartments for deletion`);
+
+    // Execute all deletions in a single batch
+    if (deleteCount > 0) {
+      await batch.commit();
+      console.log(`✅ Successfully deleted ${deleteCount} documents`);
+    } else {
+      console.log("ℹ️ No documents found to delete");
+    }
+
+    return { success: true, deletedCount: deleteCount };
+  } catch (error) {
+    console.error("❌ Error deleting user account:", error);
+    throw error;
+  }
 }

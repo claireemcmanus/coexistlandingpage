@@ -10,11 +10,14 @@ import { nashvilleNeighborhoods } from "./data/nashvilleNeighborhoods";
 import "./ProfileDetailsPage.css";
 
 export default function ProfileDetailsPage() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, deleteAccount } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const [profile, setProfile] = useState({
     displayName: "",
@@ -135,6 +138,27 @@ export default function ProfileDetailsPage() {
       navigate("/auth");
     } catch (error) {
       console.error("Failed to logout:", error);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== "DELETE") {
+      setStatus("Please type 'DELETE' to confirm account deletion");
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setStatus("Deleting account...");
+      await deleteAccount();
+      setStatus("Account deleted successfully. Redirecting...");
+      setTimeout(() => {
+        navigate("/auth");
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to delete account:", error);
+      setStatus("Failed to delete account. Please try again.");
+      setDeleting(false);
     }
   }
 
@@ -445,6 +469,22 @@ export default function ProfileDetailsPage() {
           </div>
         </div>
 
+        <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>Danger Zone</h3>
+          <div style={styles.inputGroup}>
+            <p style={styles.dangerText}>
+              Once you delete your account, there is no going back. This will permanently delete your profile, matches, messages, and all associated data.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              style={styles.deleteAccountButton}
+            >
+              Delete Account
+            </button>
+          </div>
+        </div>
+
         {status && (
           <div
             style={{
@@ -471,6 +511,64 @@ export default function ProfileDetailsPage() {
           </button>
         </div>
       </form>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h2 style={styles.modalTitle}>Delete Account</h2>
+            <p style={styles.modalText}>
+              Are you sure you want to delete your account? This action cannot be undone.
+            </p>
+            <p style={styles.modalWarning}>
+              This will permanently delete:
+            </p>
+            <ul style={styles.modalList}>
+              <li>Your profile and all personal information</li>
+              <li>All your matches</li>
+              <li>All your messages</li>
+              <li>All your likes and passes</li>
+              <li>All other account data</li>
+            </ul>
+            <label style={styles.modalLabel}>
+              Type <strong>DELETE</strong> to confirm:
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                style={styles.modalInput}
+                placeholder="DELETE"
+                disabled={deleting}
+              />
+            </label>
+            <div style={styles.modalActions}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteConfirmText("");
+                }}
+                style={styles.modalCancelButton}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                style={{
+                  ...styles.modalDeleteButton,
+                  opacity: deleteConfirmText === "DELETE" && !deleting ? 1 : 0.5,
+                  cursor: deleteConfirmText === "DELETE" && !deleting ? "pointer" : "not-allowed",
+                }}
+                disabled={deleteConfirmText !== "DELETE" || deleting}
+              >
+                {deleting ? "Deleting..." : "Delete Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -723,6 +821,114 @@ const styles = {
     color: "#c4b5fd",
     fontSize: "14px",
     marginTop: "10px",
+  },
+  dangerText: {
+    color: "#fca5a5",
+    fontSize: "14px",
+    marginBottom: "16px",
+    lineHeight: "1.6",
+  },
+  deleteAccountButton: {
+    padding: "12px 24px",
+    backgroundColor: "#dc2626",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: "600",
+    transition: "all 0.2s",
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: "20px",
+  },
+  modal: {
+    backgroundColor: "rgba(45, 53, 97, 0.98)",
+    borderRadius: "12px",
+    padding: "30px",
+    maxWidth: "500px",
+    width: "100%",
+    border: "2px solid rgba(220, 38, 38, 0.5)",
+    boxShadow: "0 8px 32px rgba(220, 38, 38, 0.3)",
+  },
+  modalTitle: {
+    color: "#fca5a5",
+    fontSize: "24px",
+    fontWeight: "600",
+    margin: "0 0 16px 0",
+  },
+  modalText: {
+    color: "#e9d5ff",
+    fontSize: "16px",
+    margin: "0 0 16px 0",
+    lineHeight: "1.6",
+  },
+  modalWarning: {
+    color: "#fbbf24",
+    fontSize: "14px",
+    fontWeight: "600",
+    margin: "16px 0 8px 0",
+  },
+  modalList: {
+    color: "#c4b5fd",
+    fontSize: "14px",
+    margin: "0 0 20px 20px",
+    lineHeight: "1.8",
+  },
+  modalLabel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    color: "#c4b5fd",
+    fontSize: "14px",
+    marginBottom: "20px",
+  },
+  modalInput: {
+    padding: "12px",
+    fontSize: "16px",
+    border: "2px solid rgba(220, 38, 38, 0.3)",
+    borderRadius: "8px",
+    outline: "none",
+    backgroundColor: "rgba(26, 31, 58, 0.7)",
+    color: "#fff",
+  },
+  modalActions: {
+    display: "flex",
+    gap: "12px",
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: "12px",
+    backgroundColor: "rgba(167, 139, 250, 0.2)",
+    color: "#a78bfa",
+    border: "1px solid rgba(167, 139, 250, 0.4)",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: "500",
+    transition: "all 0.2s",
+  },
+  modalDeleteButton: {
+    flex: 1,
+    padding: "12px",
+    backgroundColor: "#dc2626",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "16px",
+    fontWeight: "600",
+    transition: "all 0.2s",
   },
 };
 

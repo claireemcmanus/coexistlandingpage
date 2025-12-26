@@ -126,7 +126,7 @@ export default function ProfileCheck({ children }) {
             {currentUser?.email}
           </p>
           <p style={{ marginBottom: "30px", color: "#a5b4fc", fontSize: "14px", lineHeight: "1.6" }}>
-            Check your email for a 6-digit verification code. After entering the code, you can continue to create your profile.
+            Check your email for a verification link. Click the link in the email to verify your account, then you can continue to create your profile.
           </p>
           <button
             onClick={() => window.location.href = "/auth"}

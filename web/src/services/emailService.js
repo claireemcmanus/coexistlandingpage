@@ -16,13 +16,25 @@ if (EMAILJS_PUBLIC_KEY) {
  * @param {string} code - 6-digit verification code
  * @returns {Promise} - Promise that resolves when email is sent
  */
+export function isEmailJSConfigured() {
+  return !!(EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY);
+}
+
 export async function sendVerificationCodeEmail(email, code) {
-  // If EmailJS is not configured, log the code to console (for development)
-  if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
-    console.warn('⚠️ EmailJS not configured. Verification code:', code);
-    console.warn('📧 In production, configure EmailJS or use Firebase Cloud Functions');
-    // For development, we'll simulate success
-    return Promise.resolve({ text: 'Email sent (simulated)' });
+  // If EmailJS is not configured, return the code for display
+  if (!isEmailJSConfigured()) {
+    console.warn('⚠️ EmailJS not configured.');
+    console.warn('📧 To enable email sending, add these to your .env file:');
+    console.warn('   REACT_APP_EMAILJS_SERVICE_ID=...');
+    console.warn('   REACT_APP_EMAILJS_TEMPLATE_ID=...');
+    console.warn('   REACT_APP_EMAILJS_PUBLIC_KEY=...');
+    console.warn('💡 Your verification code is:', code);
+    // Return the code so it can be displayed in the UI
+    return Promise.resolve({ 
+      text: 'Email sent (simulated)', 
+      code: code,
+      emailSent: false 
+    });
   }
 
   try {
@@ -32,17 +44,29 @@ export async function sendVerificationCodeEmail(email, code) {
       app_name: 'Coexist',
     };
 
+    console.log('📧 Sending verification email via EmailJS...');
     const response = await emailjs.send(
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
       templateParams
     );
 
-    console.log('✅ Verification code email sent successfully:', response);
-    return response;
+    console.log('✅ Verification code email sent successfully:', response.status);
+    return { ...response, emailSent: true };
   } catch (error) {
     console.error('❌ Failed to send verification code email:', error);
-    throw new Error('Failed to send verification email. Please try again later.');
+    console.error('Error details:', {
+      status: error.status,
+      text: error.text,
+      message: error.message
+    });
+    
+    // Return the code anyway so user can still verify (graceful degradation)
+    return {
+      code: code,
+      emailSent: false,
+      error: error.text || error.message || 'Failed to send email'
+    };
   }
 }
 
