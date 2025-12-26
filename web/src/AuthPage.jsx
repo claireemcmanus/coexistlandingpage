@@ -3,6 +3,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { validateEmail, validatePassword } from "./utils/validation";
 import { getUserProfile } from "./services/firestore";
+import ShaderBackground from "./components/ui/shader-background";
 import "./AuthPage.css";
 
 export default function AuthPage() {
@@ -210,6 +211,7 @@ export default function AuthPage() {
   if (showVerificationScreen) {
     return (
       <div style={{...styles.container, overflow: 'hidden', height: '100vh'}}>
+        <ShaderBackground />
         <div style={styles.card}>
           <h2 style={styles.title}>Verify Your Email</h2>
           
@@ -301,6 +303,7 @@ export default function AuthPage() {
 
   return (
     <div style={{...styles.container, overflow: 'hidden', height: '100vh'}}>
+      <ShaderBackground />
       <div style={styles.card}>
         <h2 style={styles.title}>
           {isLogin ? "Sign In" : "Sign Up"}
@@ -400,6 +403,8 @@ const styles = {
     width: "100%",
     maxWidth: "400px",
     border: "1px solid rgba(167, 139, 250, 0.2)",
+    position: "relative",
+    zIndex: 1,
   },
   title: {
     marginBottom: "30px",
