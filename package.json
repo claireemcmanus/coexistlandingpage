@@ -1,0 +1,17 @@
+{
+  "name": "coexist-landing-page",
+  "version": "1.0.0",
+  "description": "Landing page for coexist with email waitlist",
+  "type": "module",
+  "scripts": {
+    "export-emails": "node export-emails.js",
+    "export-emails:json": "node export-emails.js json",
+    "sync:resend": "node sync-email-service.js resend",
+    "sync:sendgrid": "node sync-email-service.js sendgrid",
+    "sync:mailchimp": "node sync-email-service.js mailchimp"
+  },
+  "dependencies": {
+    "firebase": "^10.7.1"
+  }
+}
+

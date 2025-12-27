@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Export - coexist</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-container {
+            min-height: 100vh;
+            padding: 120px 20px 80px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .admin-box {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 16px;
+            border: 1px solid rgba(167, 139, 250, 0.2);
+        }
+        .admin-box h1 {
+            color: var(--secondary-color);
+            margin-bottom: 1rem;
+        }
+        .admin-box p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+        .export-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+        .export-btn {
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .export-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+        .stats {
+            background: rgba(26, 31, 58, 0.5);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .stats h3 {
+            color: var(--secondary-color);
+            margin-bottom: 1rem;
+        }
+        .stats p {
+            color: var(--text-secondary);
+            margin: 0.5rem 0;
+        }
+        .email-list {
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(26, 31, 58, 0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .email-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid rgba(167, 139, 250, 0.1);
+            color: var(--text-secondary);
+        }
+        .loading {
+            color: var(--secondary-color);
+            margin: 1rem 0;
+        }
+        .error {
+            color: #f87171;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <a href="index.html" style="text-decoration: none; color: inherit;"><h1>coexist</h1></a>
+                </div>
+                <div class="nav-links">
+                    <a href="index.html">Home</a>
+                    <a href="signup.html">Signup</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Admin Section -->
+    <section class="admin-container">
+        <div class="admin-box">
+            <h1>Email Waitlist Export</h1>
+            <p>Export all emails collected from the waitlist signup form.</p>
+            
+            <div class="stats" id="stats">
+                <h3>Waitlist Statistics</h3>
+                <p id="totalEmails">Loading...</p>
+                <p id="first200">-</p>
+            </div>
+
+            <div class="export-buttons">
+                <button class="export-btn" onclick="exportToCSV()">Export to CSV</button>
+                <button class="export-btn" onclick="exportToJSON()">Export to JSON</button>
+                <button class="export-btn" onclick="copyEmails()">Copy Email List</button>
+                <button class="export-btn" onclick="refreshStats()">Refresh</button>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">Loading emails...</div>
+            <div id="error" class="error" style="display: none;"></div>
+
+            <div id="emailList" class="email-list" style="display: none;">
+                <h3 style="color: var(--secondary-color); margin-bottom: 1rem;">All Emails:</h3>
+                <div id="emailItems"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDs9B8K1X8xmyw77l4BM55z7nTZzZ0mf5M",
+            authDomain: "collegeconnect-3906d.firebaseapp.com",
+            projectId: "collegeconnect-3906d",
+            storageBucket: "collegeconnect-3906d.firebasestorage.app",
+            messagingSenderId: "114960693146",
+            appId: "1:114960693146:web:bbe01ba7f0bb4f1daaec23",
+            measurementId: "G-113E6P25MQ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let allEmails = [];
+
+        async function loadEmails() {
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const statsEl = document.getElementById('stats');
+            
+            loadingEl.style.display = 'block';
+            errorEl.style.display = 'none';
+
+            try {
+                const waitlistRef = collection(db, 'waitlist');
+                const q = query(waitlistRef, orderBy('timestamp', 'desc'));
+                const querySnapshot = await getDocs(q);
+                
+                allEmails = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.email) {
+                        allEmails.push({
+                            email: data.email,
+                            timestamp: data.timestamp?.toDate?.() || data.timestamp || null,
+                            status: data.status || 'pending'
+                        });
+                    }
+                });
+
+                updateStats();
+                displayEmails();
+                loadingEl.style.display = 'none';
+            } catch (error) {
+                console.error('Error loading emails:', error);
+                errorEl.textContent = 'Error loading emails: ' + error.message;
+                errorEl.style.display = 'block';
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        function updateStats() {
+            const totalEl = document.getElementById('totalEmails');
+            const first200El = document.getElementById('first200');
+            
+            totalEl.textContent = `Total Emails: ${allEmails.length}`;
+            
+            if (allEmails.length > 0) {
+                const first200 = allEmails.slice(0, 200);
+                first200El.textContent = `First 200 users (for premium): ${first200.length} collected`;
+                first200El.style.color = allEmails.length >= 200 ? '#4ade80' : 'var(--secondary-color)';
+            } else {
+                first200El.textContent = 'No emails collected yet';
+            }
+        }
+
+        function displayEmails() {
+            const emailListEl = document.getElementById('emailList');
+            const emailItemsEl = document.getElementById('emailItems');
+            
+            if (allEmails.length === 0) {
+                emailListEl.style.display = 'none';
+                return;
+            }
+
+            emailListEl.style.display = 'block';
+            emailItemsEl.innerHTML = allEmails.map((item, index) => {
+                const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'N/A';
+                return `<div class="email-item">${index + 1}. ${item.email} <span style="color: var(--text-muted); font-size: 0.9rem;">(${date})</span></div>`;
+            }).join('');
+        }
+
+        window.exportToCSV = function() {
+            if (allEmails.length === 0) {
+                alert('No emails to export. Please refresh first.');
+                return;
+            }
+
+            let csvContent = 'Email,Timestamp,Status\n';
+            allEmails.forEach(item => {
+                const date = item.timestamp ? new Date(item.timestamp).toISOString() : 'N/A';
+                csvContent += `${item.email},${date},${item.status}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coexist-waitlist-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        };
+
+        window.exportToJSON = function() {
+            if (allEmails.length === 0) {
+                alert('No emails to export. Please refresh first.');
+                return;
+            }
+
+            const jsonContent = JSON.stringify(allEmails, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coexist-waitlist-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        };
+
+        window.copyEmails = async function() {
+            if (allEmails.length === 0) {
+                alert('No emails to copy. Please refresh first.');
+                return;
+            }
+
+            const emailList = allEmails.map(item => item.email).join('\n');
+            try {
+                await navigator.clipboard.writeText(emailList);
+                alert(`Copied ${allEmails.length} emails to clipboard!`);
+            } catch (error) {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = emailList;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert(`Copied ${allEmails.length} emails to clipboard!`);
+            }
+        };
+
+        window.refreshStats = function() {
+            loadEmails();
+        };
+
+        // Load emails on page load
+        loadEmails();
+    </script>
+</body>
+</html>
+
