@@ -6,15 +6,32 @@ export async function uploadProfilePicture(userId, file) {
     throw new Error("User ID and file are required");
   }
 
-  // Create a reference to the file location
-  const storageRef = ref(storage, `profile-pictures/${userId}/${Date.now()}_${file.name}`);
+  try {
+    console.log("uploadProfilePicture: Starting upload for user:", userId);
+    console.log("uploadProfilePicture: File name:", file.name);
+    console.log("uploadProfilePicture: File size:", file.size, "bytes");
+    console.log("uploadProfilePicture: File type:", file.type);
 
-  // Upload the file
-  await uploadBytes(storageRef, file);
+    // Create a reference to the file location
+    const fileName = `${Date.now()}_${file.name}`;
+    const storageRef = ref(storage, `profile-pictures/${userId}/${fileName}`);
+    console.log("uploadProfilePicture: Storage path:", `profile-pictures/${userId}/${fileName}`);
 
-  // Get the download URL
-  const downloadURL = await getDownloadURL(storageRef);
+    // Upload the file
+    console.log("uploadProfilePicture: Uploading bytes...");
+    await uploadBytes(storageRef, file);
+    console.log("uploadProfilePicture: Upload complete, getting download URL...");
 
-  return downloadURL;
+    // Get the download URL
+    const downloadURL = await getDownloadURL(storageRef);
+    console.log("uploadProfilePicture: Download URL obtained:", downloadURL);
+
+    return downloadURL;
+  } catch (error) {
+    console.error("uploadProfilePicture: Error occurred:", error);
+    console.error("uploadProfilePicture: Error code:", error.code);
+    console.error("uploadProfilePicture: Error message:", error.message);
+    throw error;
+  }
 }
 

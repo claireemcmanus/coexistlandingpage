@@ -12,9 +12,9 @@
 
 /**
  * Search for apartments using Google Places API
- * @param {string} query - Search query (e.g., "apartments in Nashville")
+ * @param {string} query - Search query (e.g., "apartments in New York")
  * @param {Object} options - Search options
- * @param {string} options.location - Location string (e.g., "Nashville, TN")
+ * @param {string} options.location - Location string (e.g., "New York, NY")
  * @param {number} options.radius - Search radius in meters (default: 5000)
  * @param {number} options.maxResults - Maximum number of results (default: 20)
  * @returns {Promise<Array>} Array of apartment listings
@@ -27,7 +27,7 @@ export async function searchApartmentsGooglePlaces(query, options = {}) {
     return getMockApartmentData(query, options);
   }
 
-  const { location = "Nashville, TN", radius = 5000, maxResults = 20 } = options;
+  const { location = "New York, NY", radius = 5000, maxResults = 20 } = options;
 
   try {
     // First, get coordinates for the location
@@ -94,7 +94,7 @@ export async function searchApartmentsRentals(query, options = {}) {
     return [];
   }
 
-  const { location = "Nashville, TN", maxResults = 20 } = options;
+  const { location = "New York, NY", maxResults = 20 } = options;
 
   try {
     // Example Rentals.com API call (adjust endpoint based on actual API documentation)
@@ -145,7 +145,7 @@ export async function searchApartments(query, options = {}) {
  * Get mock apartment data for demonstration/fallback
  */
 function getMockApartmentData(query, options) {
-  const { location = "Nashville, TN" } = options;
+  const { location = "New York, NY" } = options;
   
   // Generate some mock apartments based on the search query
   const mockApartments = [

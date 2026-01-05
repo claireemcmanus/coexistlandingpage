@@ -7,6 +7,8 @@ import ProfilesPage from "./ProfilesPage";
 // import ApartmentsPage from "./ApartmentsPage"; // Hidden until API is set up
 import MatchesMessagesPage from "./MatchesMessagesPage";
 import ProfileDetailsPage from "./ProfileDetailsPage";
+import EditProfilePage from "./EditProfilePage";
+import SettingsPage from "./SettingsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfileCheck from "./components/ProfileCheck";
 import BottomTabs from "./components/BottomTabs";
@@ -80,6 +82,28 @@ function App() {
               <ProtectedRoute>
                 <ProfileCheck>
                   <ProfileDetailsPage />
+                  <BottomTabs />
+                </ProfileCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/edit"
+            element={
+              <ProtectedRoute>
+                <ProfileCheck>
+                  <EditProfilePage />
+                  <BottomTabs />
+                </ProfileCheck>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/settings"
+            element={
+              <ProtectedRoute>
+                <ProfileCheck>
+                  <SettingsPage />
                   <BottomTabs />
                 </ProfileCheck>
               </ProtectedRoute>

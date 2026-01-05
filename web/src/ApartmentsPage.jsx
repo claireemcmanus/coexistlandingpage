@@ -59,11 +59,11 @@ export default function ApartmentsPage() {
     setSearchResults([]);
 
     try {
-      // Build location string from user's neighborhoods or default to Nashville
+      // Build location string from user's neighborhoods or default to New York City
       // Use first neighborhood if multiple selected, or default
       const location = userNeighborhoods.length > 0
-        ? `${userNeighborhoods[0]}, Nashville, TN`
-        : "Nashville, TN";
+        ? `${userNeighborhoods[0]}, New York, NY`
+        : "New York, NY";
 
       // Search for apartments
       const results = await searchApartments(searchQuery, {
@@ -199,8 +199,8 @@ export default function ApartmentsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={userNeighborhoods.length > 0
-                ? `Search for apartments in ${userNeighborhoods[0]}${userNeighborhoods.length > 1 ? ` (+${userNeighborhoods.length - 1} more)` : ''}, Nashville...`
-                : "Search for apartments in Nashville..."}
+                ? `Search for apartments in ${userNeighborhoods[0]}${userNeighborhoods.length > 1 ? ` (+${userNeighborhoods.length - 1} more)` : ''}, New York...`
+                : "Search for apartments in New York..."}
               style={styles.searchInput}
               className="apartment-search-input"
             />

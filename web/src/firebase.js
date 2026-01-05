@@ -3,6 +3,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getMessaging } from "firebase/messaging";
 import {
   initializeAuth,
   indexedDBLocalPersistence,
@@ -32,4 +33,15 @@ console.log("✅ Firebase Auth initialized with indexedDB persistence");
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-export { app, auth, db, storage };
+// 🔔 Firebase Cloud Messaging (only initialize on web, not iOS native)
+let messaging = null;
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    messaging = getMessaging(app);
+    console.log("✅ Firebase Messaging initialized");
+  } catch (error) {
+    console.warn("⚠️ Firebase Messaging not available (likely iOS native):", error.message);
+  }
+}
+
+export { app, auth, db, storage, messaging };

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { upsertUserProfile, getUserProfile } from "./services/firestore";
 import { uploadProfilePicture } from "./services/storage";
-import { nashvilleNeighborhoods } from "./data/nashvilleNeighborhoods";
+import { newYorkNeighborhoods } from "./data/newYorkNeighborhoods";
 import "./ProfileSetupPage.css";
 
 export default function ProfileSetupPage() {
@@ -115,7 +115,7 @@ export default function ProfileSetupPage() {
     return "12 Months";
   };
 
-  const filteredNeighborhoods = nashvilleNeighborhoods.filter((n) =>
+  const filteredNeighborhoods = newYorkNeighborhoods.filter((n) =>
     n.toLowerCase().includes(neighborhoodSearch.toLowerCase())
   );
 
@@ -270,7 +270,7 @@ export default function ProfileSetupPage() {
             <div style={styles.step}>
               <h3 style={styles.stepTitle}>Where are you looking to live?</h3>
               <p style={styles.stepDescription}>
-                Select one or more neighborhoods in Nashville
+                Select one or more neighborhoods in New York City
               </p>
 
               <div style={styles.inputGroup}>

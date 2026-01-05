@@ -9,6 +9,7 @@ import {
   deleteUser,
 } from "firebase/auth";
 import { deleteUserAccount } from "../services/firestore";
+import { registerForPushNotifications } from "../services/pushNotifications";
 
 const AuthContext = createContext({});
 
@@ -215,13 +216,23 @@ export function AuthProvider({ children }) {
       
       const unsubscribe = onAuthStateChanged(
         auth, 
-        (user) => {
+        async (user) => {
           listenerFired = true;
           console.log("✅ Auth state changed callback fired!");
           console.log("User:", user ? user.uid : "null");
           clearTimeout(timeoutId);
           setCurrentUser(user);
           setLoading(false);
+          
+          // Register for push notifications when user logs in
+          if (user) {
+            try {
+              console.log("📱 Registering for push notifications...");
+              await registerForPushNotifications(user.uid);
+            } catch (error) {
+              console.error("Failed to register push notifications:", error);
+            }
+          }
         }, 
         (error) => {
           listenerFired = true;

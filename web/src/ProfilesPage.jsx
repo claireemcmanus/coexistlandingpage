@@ -764,6 +764,7 @@ const styles = {
     position: "relative",
     overflow: "hidden",
     paddingBottom: "80px",
+    paddingTop: "60px",
   },
   loading: {
     display: "flex",
@@ -935,8 +936,8 @@ const styles = {
     transition: "all 0.2s",
   },
   actionButtons: {
-    position: "absolute",
-    bottom: 0,
+    position: "fixed",
+    bottom: "50px",
     left: 0,
     right: 0,
     display: "flex",
@@ -947,6 +948,7 @@ const styles = {
     backgroundColor: "rgba(26, 31, 58, 0.98)",
     borderTop: "1px solid rgba(167, 139, 250, 0.2)",
     zIndex: 20,
+    boxShadow: "0 -4px 12px rgba(0, 0, 0, 0.3)",
   },
   passButton: {
     width: "70px",
