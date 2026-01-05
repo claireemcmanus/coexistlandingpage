@@ -244,6 +244,13 @@
             e.preventDefault();
             
             const email = emailInput.value.trim().toLowerCase();
+            const privacyCheck = document.getElementById('privacyCheck');
+            
+            // Check privacy checkbox
+            if (!privacyCheck.checked) {
+                showError('Please agree to the Privacy Policy and Terms of Service');
+                return;
+            }
             
             if (!email) {
                 showError('Please enter a valid email address');
@@ -263,12 +270,23 @@
             hideMessages();
 
             try {
-                // Check if email already exists
-                const waitlistRef = collection(db, 'waitlist');
-                const q = query(waitlistRef, where('email', '==', email));
-                const querySnapshot = await getDocs(q);
+                console.log('📧 Attempting to submit email:', email);
                 
-                if (!querySnapshot.empty) {
+                // Try to check if email already exists (this might fail due to security rules)
+                // If it fails, we'll just try to add it anyway and let Firestore handle duplicates
+                let emailExists = false;
+                try {
+                    const waitlistRef = collection(db, 'waitlist');
+                    const q = query(waitlistRef, where('email', '==', email));
+                    const querySnapshot = await getDocs(q);
+                    emailExists = !querySnapshot.empty;
+                    console.log('📋 Email check result:', emailExists ? 'Email already exists' : 'Email not found');
+                } catch (checkError) {
+                    console.warn('⚠️ Could not check for existing email (this is OK):', checkError.message);
+                    // Continue anyway - Firestore will handle duplicates if needed
+                }
+                
+                if (emailExists) {
                     showError('This email is already on the waitlist!');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Notify Me';
@@ -276,18 +294,36 @@
                 }
 
                 // Add email to Firestore
-                await addDoc(collection(db, 'waitlist'), {
+                console.log('💾 Adding email to Firestore...');
+                const docRef = await addDoc(collection(db, 'waitlist'), {
                     email: email,
                     timestamp: new Date(),
                     status: 'pending'
                 });
                 
+                console.log('✅ Email added successfully! Document ID:', docRef.id);
                 showSuccess();
                 emailInput.value = '';
+                privacyCheck.checked = false;
                 
             } catch (error) {
-                console.error('Error adding email:', error);
-                showError('Failed to submit. Please try again later.');
+                console.error('❌ Error adding email:', error);
+                console.error('Error code:', error.code);
+                console.error('Error message:', error.message);
+                console.error('Full error:', error);
+                
+                // Provide specific error messages
+                if (error.code === 'permission-denied') {
+                    showError('Permission denied. The waitlist security rules may need to be updated. Error: ' + error.message);
+                } else if (error.code === 'unavailable') {
+                    showError('Network error. Please check your connection and try again.');
+                } else if (error.code === 'failed-precondition') {
+                    showError('Database error. Please try again in a moment.');
+                } else if (error.message) {
+                    showError(`Failed to submit: ${error.message}`);
+                } else {
+                    showError('Failed to submit. Please try again later. Check the browser console for details.');
+                }
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Notify Me';

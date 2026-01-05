@@ -1,0 +1,158 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is a participant in a room
+    function isParticipantInRoom(roomId) {
+      // roomId format is: userId1_userId2 (sorted alphabetically)
+      let parts = roomId.split('_');
+      return request.auth != null && 
+             (parts[0] == request.auth.uid || parts[1] == request.auth.uid);
+    }
+    
+    // ============================================
+    // USER PROFILES
+    // ============================================
+    match /users/{userId} {
+      // Anyone authenticated can read profiles (for matching)
+      allow read: if request.auth != null;
+      
+      // Users can only write their own profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // Users can read/write their own saved apartments
+      match /savedApartments/{apartmentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // ============================================
+    // LIKES
+    // ============================================
+    match /likes/{likeId} {
+      // Users can read all likes (to check if someone liked them)
+      allow read: if request.auth != null;
+      
+      // Users can only create likes where they are the liker
+      allow create: if request.auth != null && 
+        request.resource.data.likerId == request.auth.uid;
+      
+      // Likes are immutable (no updates or deletes)
+      allow update, delete: if false;
+    }
+    
+    // ============================================
+    // PASSES
+    // ============================================
+    match /passes/{passId} {
+      // Users can read all passes (to check if someone passed on them)
+      allow read: if request.auth != null;
+      
+      // Users can only create passes where they are the passer
+      allow create: if request.auth != null && 
+        request.resource.data.passerId == request.auth.uid;
+      
+      // Passes are immutable (no updates or deletes)
+      allow update, delete: if false;
+    }
+    
+    // ============================================
+    // MATCHES
+    // ============================================
+    match /matches/{matchId} {
+      // Users can only read matches where they are a participant
+      allow read: if request.auth != null && 
+        (resource.data.userId1 == request.auth.uid || 
+         resource.data.userId2 == request.auth.uid);
+      
+      // Users can create matches (system creates them on mutual like)
+      allow create: if request.auth != null;
+      
+      // Users can update/delete their own matches
+      allow update, delete: if request.auth != null && 
+        (resource.data.userId1 == request.auth.uid || 
+         resource.data.userId2 == request.auth.uid);
+    }
+    
+    // ============================================
+    // MESSAGES (Between Matches & Direct Messages)
+    // ============================================
+    match /messages/{messageId} {
+      // Allow read only if user is a participant in the room
+      allow read: if request.auth != null && 
+        isParticipantInRoom(resource.data.roomId);
+      
+      // Allow create only if:
+      // 1. User is authenticated
+      // 2. User is the sender (userId matches auth.uid)
+      // 3. User is a participant in the room
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        isParticipantInRoom(request.resource.data.roomId);
+      
+      // Messages are immutable (no updates or deletes)
+      allow update, delete: if false;
+    }
+    
+    // ============================================
+    // BLOCKS
+    // ============================================
+    match /blocks/{blockId} {
+      // Users can only read blocks they created
+      allow read: if request.auth != null && 
+        resource.data.blockerId == request.auth.uid;
+      
+      // Users can only create blocks where they are the blocker
+      allow create: if request.auth != null && 
+        request.resource.data.blockerId == request.auth.uid;
+      
+      // Users can delete their own blocks
+      allow delete: if request.auth != null && 
+        resource.data.blockerId == request.auth.uid;
+      
+      // Blocks are immutable (no updates)
+      allow update: if false;
+    }
+    
+    // ============================================
+    // REPORTS
+    // ============================================
+    match /reports/{reportId} {
+      // Users can only read reports they created
+      allow read: if request.auth != null && 
+        resource.data.reporterId == request.auth.uid;
+      
+      // Users can only create reports where they are the reporter
+      allow create: if request.auth != null && 
+        request.resource.data.reporterId == request.auth.uid;
+      
+      // Reports are immutable (no updates or deletes)
+      allow update, delete: if false;
+    }
+    
+    // ============================================
+    // VERIFICATION CODES (if you still use them)
+    // ============================================
+    match /verificationCodes/{codeId} {
+      // Users can read/write their own verification codes
+      allow read, write: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // WAITLIST (for landing page)
+    // ============================================
+    match /waitlist/{waitlistId} {
+      // Allow reading to check for duplicates (but only email field)
+      // This allows the query to check if email exists
+      allow read: if true;
+      
+      // Anyone can add themselves to waitlist (no authentication required)
+      allow create: if true;
+      
+      // No updates or deletes
+      allow update, delete: if false;
+    }
+  }
+}
+

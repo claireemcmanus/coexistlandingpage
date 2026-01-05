@@ -64,47 +64,99 @@ You need to create these indexes in Firestore:
 
 Update your Firestore rules in Firebase Console → Firestore Database → Rules:
 
+**Copy the complete rules from `FIRESTORE_RULES_COMPLETE.txt` or use the rules below:**
+
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read/write their own profile
+    
+    // Helper function to check if user is a participant in a room
+    function isParticipantInRoom(roomId) {
+      // roomId format is: userId1_userId2 (sorted alphabetically)
+      let parts = roomId.split('_');
+      return request.auth != null && 
+             (parts[0] == request.auth.uid || parts[1] == request.auth.uid);
+    }
+    
+    // USER PROFILES
     match /users/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
       
-      // Users can read/write their own saved apartments
       match /savedApartments/{apartmentId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
     
-    // Messages - users can read/write messages in rooms they're part of
-    match /messages/{messageId} {
-      allow read, write: if request.auth != null && 
-        resource.data.roomId.matches(/.*/);
+    // LIKES
+    match /likes/{likeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.resource.data.likerId == request.auth.uid;
+      allow update, delete: if false;
     }
     
-    // Matches - users can read their own matches
+    // PASSES
+    match /passes/{passId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.resource.data.passerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    
+    // MATCHES
     match /matches/{matchId} {
       allow read: if request.auth != null && 
         (resource.data.userId1 == request.auth.uid || 
          resource.data.userId2 == request.auth.uid);
       allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        (resource.data.userId1 == request.auth.uid || 
+         resource.data.userId2 == request.auth.uid);
     }
     
-    // Likes and Passes
-    match /likes/{likeId} {
-      allow read, write: if request.auth != null;
+    // MESSAGES (Between Matches & Direct Messages)
+    match /messages/{messageId} {
+      allow read: if request.auth != null && 
+        isParticipantInRoom(resource.data.roomId);
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid &&
+        isParticipantInRoom(request.resource.data.roomId);
+      allow update, delete: if false;
     }
     
-    match /passes/{passId} {
-      allow read, write: if request.auth != null;
+    // BLOCKS
+    match /blocks/{blockId} {
+      allow read: if request.auth != null && 
+        resource.data.blockerId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.blockerId == request.auth.uid;
+      allow delete: if request.auth != null && 
+        resource.data.blockerId == request.auth.uid;
+      allow update: if false;
     }
     
-    // Rooms
-    match /rooms/{roomId} {
-      allow read, write: if request.auth != null;
+    // REPORTS
+    match /reports/{reportId} {
+      allow read: if request.auth != null && 
+        resource.data.reporterId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.reporterId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    
+    // VERIFICATION CODES
+    match /verificationCodes/{codeId} {
+      allow read, write: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // WAITLIST
+    match /waitlist/{waitlistId} {
+      allow read: if false;
+      allow create: if true;
+      allow update, delete: if false;
     }
   }
 }

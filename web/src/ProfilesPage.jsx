@@ -141,10 +141,22 @@ export default function ProfilesPage() {
   }, [currentUser, viewUserId]);
 
   async function handleLike(userId) {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.error("❌ Cannot like: No current user");
+      alert("You must be logged in to like profiles.");
+      return;
+    }
+    
+    if (!userId) {
+      console.error("❌ Cannot like: No user ID provided");
+      return;
+    }
+    
+    console.log("👍 Attempting to like user:", userId);
     
     try {
       const result = await likeUser(currentUser.uid, userId);
+      console.log("✅ Like successful:", result);
       
       // Update local state
       setLikes([...likes, { likerId: currentUser.uid, likedId: userId }]);
@@ -171,15 +183,38 @@ export default function ProfilesPage() {
         }
       }
     } catch (error) {
-      console.error("Error liking user:", error);
+      console.error("❌ Error liking user:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
+      
+      // Show user-friendly error message
+      if (error.code === 'permission-denied') {
+        alert("Permission denied. Please check your Firestore security rules allow creating likes.");
+      } else if (error.message) {
+        alert(`Failed to like user: ${error.message}`);
+      } else {
+        alert("Failed to like user. Please try again.");
+      }
     }
   }
 
   async function handlePass(userId) {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.error("❌ Cannot pass: No current user");
+      alert("You must be logged in to pass on profiles.");
+      return;
+    }
+    
+    if (!userId) {
+      console.error("❌ Cannot pass: No user ID provided");
+      return;
+    }
+    
+    console.log("👎 Attempting to pass on user:", userId);
     
     try {
       await passUser(currentUser.uid, userId);
+      console.log("✅ Pass successful");
       
       // Update local state
       setPasses([...passes, { passerId: currentUser.uid, passedId: userId }]);
@@ -195,7 +230,18 @@ export default function ProfilesPage() {
         setCurrentIndex(updatedProfiles.length - 1);
       }
     } catch (error) {
-      console.error("Error passing user:", error);
+      console.error("❌ Error passing user:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
+      
+      // Show user-friendly error message
+      if (error.code === 'permission-denied') {
+        alert("Permission denied. Please check your Firestore security rules allow creating passes.");
+      } else if (error.message) {
+        alert(`Failed to pass on user: ${error.message}`);
+      } else {
+        alert("Failed to pass on user. Please try again.");
+      }
     }
   }
 
@@ -340,6 +386,16 @@ export default function ProfilesPage() {
   // Ensure currentIndex is valid
   const validIndex = Math.min(currentIndex, profiles.length - 1);
   const currentProfile = profiles[validIndex] || profiles[0];
+  
+  // Safety check
+  if (!currentProfile) {
+    return (
+      <div style={styles.emptyState}>
+        <h2>No profiles available</h2>
+        <p>All profiles have been liked or passed.</p>
+      </div>
+    );
+  }
 
   const currentProfileForMessage = messagePopupUserId 
     ? profiles.find(p => p.id === messagePopupUserId) 

@@ -88,12 +88,23 @@ async function registerNativePushNotifications(userId) {
  */
 async function registerWebPushNotifications(userId) {
   if (!messaging) {
-    console.warn("⚠️ Firebase Messaging not available");
+    console.warn("⚠️ Firebase Messaging not available (this is normal on iOS native)");
     return null;
   }
 
   try {
+    // Check if messaging is actually initialized
+    if (typeof messaging === 'undefined' || messaging === null) {
+      console.warn("⚠️ Firebase Messaging not initialized");
+      return null;
+    }
+
     // Request notification permission
+    if (typeof Notification === 'undefined') {
+      console.warn("⚠️ Notifications not supported in this environment");
+      return null;
+    }
+
     const permission = await Notification.requestPermission();
     
     if (permission !== 'granted') {
@@ -116,7 +127,7 @@ async function registerWebPushNotifications(userId) {
       onMessage(messaging, (payload) => {
         console.log('📬 Message received in foreground:', payload);
         // Show notification
-        if (payload.notification) {
+        if (payload.notification && typeof Notification !== 'undefined') {
           new Notification(payload.notification.title, {
             body: payload.notification.body,
             icon: payload.notification.icon || '/logo192.png',
@@ -131,6 +142,7 @@ async function registerWebPushNotifications(userId) {
     }
   } catch (error) {
     console.error("❌ Error in web push registration:", error);
+    // Don't throw - just log and return null
     return null;
   }
 }
