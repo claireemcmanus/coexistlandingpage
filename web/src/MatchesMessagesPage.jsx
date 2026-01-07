@@ -296,13 +296,15 @@ export default function MatchesMessagesPage() {
     const details = reportDetails.trim();
 
     try {
-      // Create report
+      // Create report with profile snapshot
       await reportUser({
         reporterId: currentUser.uid,
         reportedUserId: selectedUserId,
         reason,
         context: "message",
         additionalDetails: details,
+        reportedUserProfile: currentProfile, // Include profile snapshot
+        reporterEmail: currentUser.email, // Include reporter email
       });
 
       // Block user

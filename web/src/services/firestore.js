@@ -553,19 +553,45 @@ export async function reportUser({
   reason,
   context = "match",
   additionalDetails = "",
+  reportedUserProfile = null, // Optional: snapshot of reported user's profile
+  reporterEmail = null, // Optional: reporter's email
 }) {
   if (!reporterId || !reportedUserId) {
     throw new Error("reporterId and reportedUserId are required");
   }
 
-  return addDoc(collection(db, "reports"), {
+  // Build report data
+  const reportData = {
     reporterId,
     reportedUserId,
     reason: reason || "No reason provided",
     additionalDetails,
     context, // 'match' or 'message'
     createdAt: serverTimestamp(),
-  });
+  };
+
+  // Include reporter email if provided
+  if (reporterEmail) {
+    reportData.reporterEmail = reporterEmail;
+  }
+
+  // Include reported user profile snapshot if provided
+  // This preserves the profile info even if user deletes/changes their account
+  if (reportedUserProfile) {
+    reportData.reportedUserSnapshot = {
+      email: reportedUserProfile.email || null,
+      displayName: reportedUserProfile.displayName || null,
+      age: reportedUserProfile.age || null,
+      gender: reportedUserProfile.gender || null,
+      hometown: reportedUserProfile.hometown || null,
+      neighborhoods: reportedUserProfile.neighborhoods || reportedUserProfile.neighborhood || null,
+      bio: reportedUserProfile.bio || null,
+      profilePictureUrl: reportedUserProfile.profilePictureUrl || null,
+      // Don't include sensitive info like social media
+    };
+  }
+
+  return addDoc(collection(db, "reports"), reportData);
 }
 
 // Saved Apartments

@@ -252,13 +252,15 @@ export default function ProfilesPage() {
     const details = reportDetails.trim();
 
     try {
-      // Create report
+      // Create report with profile snapshot
       await reportUser({
         reporterId: currentUser.uid,
         reportedUserId: currentProfile.id,
         reason,
         context: "match",
         additionalDetails: details,
+        reportedUserProfile: currentProfile, // Include profile snapshot
+        reporterEmail: currentUser.email, // Include reporter email
       });
 
       // Block user
